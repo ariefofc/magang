@@ -1,0 +1,31 @@
+/*
+ * pages/katalog.css — Halaman Katalog Kebaya Standalone
+ * ─────────────────────────────────────────────────────
+ * Digunakan oleh:
+ *   - resources/views/katalog.blade.php
+ * ─────────────────────────────────────────────────────
+ */
+
+/* ── Alpine JS x-cloak ── */
+[x-cloak] { display: none !important; }
+
+/* ── AI Color Generator Loading Overlay ── */
+.ai-loading-overlay {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+/* ── Kebaya Model Button Selected ── */
+.model-btn-selected {
+    border-color: #92400e;
+    background-color: rgba(254, 243, 199, 0.5);
+    box-shadow: 0 0 0 1px #92400e;
+    font-weight: 700;
+}
+
+/* ── Color Preset Button ── */
+.color-preset-active {
+    background-color: #1c1917;
+    color: #ffffff;
+    font-weight: 600;
+}

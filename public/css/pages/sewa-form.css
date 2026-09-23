@@ -1,0 +1,50 @@
+/*
+ * pages/sewa-form.css — Formulir Sewa & Pembayaran
+ * ─────────────────────────────────────────────────────
+ * Digunakan oleh:
+ *   - resources/views/welcome.blade.php (modal sewa multi-step)
+ * ─────────────────────────────────────────────────────
+ */
+
+/* ── Payment Method Card (Step 1 & 2 Modal) ── */
+.payment-card {
+    transition: all 0.2s ease;
+}
+.payment-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(44, 26, 14, 0.1);
+}
+
+/* ── Skema DP Toggle Button ── */
+.skema-btn {
+    padding: 10px;
+    border: 2px solid #e7e5e4;
+    border-radius: 12px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-size: 10px;
+    font-weight: 700;
+}
+.skema-btn.active {
+    border-color: #2C1A0E;
+    background-color: #FAF8F5;
+    box-shadow: 0 0 0 2px rgba(44, 26, 14, 0.1);
+    color: #2C1A0E;
+}
+
+/* ── Loading Spinner (lanjutBayar animation) ── */
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+.animate-spin {
+    animation: spin 0.75s linear infinite;
+}
+
+/* ── Form Input Focus ── */
+.sewa-input:focus {
+    outline: none;
+    border-color: #2C1A0E;
+    box-shadow: 0 0 0 2px rgba(44, 26, 14, 0.06);
+}

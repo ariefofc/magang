@@ -1,0 +1,19 @@
+/*
+ * layouts/footer.css — Footer Landing Page Styles
+ * ─────────────────────────────────────────────────────
+ * Digunakan oleh:
+ *   - resources/views/welcome.blade.php (section #tentang / footer)
+ * ─────────────────────────────────────────────────────
+ * Catatan: Sebagian besar styling footer menggunakan Tailwind
+ * utility classes. File ini untuk override/augment yang tidak
+ * dapat dilakukan oleh utility class standar.
+ */
+
+/* ── Footer Brand Link ── */
+footer a { transition: color 0.2s ease; }
+
+/* ── Footer Copyright ── */
+.footer-copyright {
+    font-size: 11px;
+    color: rgba(209, 200, 190, 0.6);
+}

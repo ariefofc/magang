@@ -1,0 +1,70 @@
+/*
+ * components/tables.css — Tabel Data (Dashboard Admin)
+ * ─────────────────────────────────────────────────────
+ * Digunakan oleh:
+ *   - resources/views/dashboard.blade.php (semua tab tabel)
+ * ─────────────────────────────────────────────────────
+ */
+
+/* ── Base Table ── */
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+/* ── Table Header ── */
+.data-table thead tr {
+    background-color: #fafaf9;
+    border-bottom: 1px solid #e7e5e4;
+}
+.data-table thead th {
+    padding: 12px;
+    text-align: left;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #78716c;
+    white-space: nowrap;
+}
+
+/* ── Table Body ── */
+.data-table tbody tr {
+    border-bottom: 1px solid #f5f5f4;
+    transition: background-color 0.15s ease;
+}
+.data-table tbody tr:hover { background-color: #fafaf9; }
+.data-table tbody td { padding: 12px; vertical-align: top; }
+
+/* ── Table Footer (Rekapitulasi) ── */
+.data-table tfoot tr {
+    background-color: #fef3c7;
+    border-top: 2px solid #fde68a;
+    font-weight: 700;
+}
+.data-table tfoot td { padding: 12px; }
+
+/* ── Empty State ── */
+.table-empty {
+    padding: 40px;
+    text-align: center;
+    color: #a8a29e;
+}
+.table-empty-icon { font-size: 32px; margin-bottom: 8px; }
+.table-empty-text { font-weight: 600; font-size: 13px; }
+
+/* ── Monospace Kode Transaksi ── */
+.trx-code-cell {
+    font-family: monospace;
+    font-size: 10px;
+    color: #78716c;
+    letter-spacing: 0.03em;
+}
+
+/* ── Scrollable Table Wrapper ── */
+.table-wrapper {
+    overflow-x: auto;
+    border-radius: 12px;
+    border: 1px solid #e7e5e4;
+}
