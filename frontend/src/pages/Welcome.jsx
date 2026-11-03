@@ -235,7 +235,7 @@ export default function Welcome() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {kebayas.map((k) => (
-                <div key={k.id} className="group bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 border border-stone-100">
+                <div key={k.slug || k.id} className="group bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 border border-stone-100">
                   <div className="relative overflow-hidden aspect-[3/4] bg-stone-100">
                     <img
                       src={k.gambar?.startsWith('http') ? k.gambar : `/uploads/${k.gambar}`}
