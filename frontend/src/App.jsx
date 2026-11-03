@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './services/AuthContext'
 import Welcome from './pages/Welcome'
+import KebayaDetail from './pages/KebayaDetail'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
@@ -18,6 +19,7 @@ export default function App() {
         <Routes>
           {/* Public */}
           <Route path="/" element={<Welcome />} />
+          <Route path="/kebaya/:slug" element={<KebayaDetail />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/payment/:id" element={<Payment />} />

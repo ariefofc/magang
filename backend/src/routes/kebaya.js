@@ -54,6 +54,33 @@ router.get('/all', auth, checkRole('admin', 'super_admin'), (req, res) => {
   }
 });
 
+// GET /api/kebaya/:slug - Public detail
+router.get('/:slug', (req, res) => {
+  try {
+    const service = new KebayaService();
+    const all = service.getPublic();
+    const k = all.find(x => x.slug === req.params.slug);
+    if (!k) return res.status(404).json({ message: 'Kebaya tidak ditemukan.' });
+    res.json({
+      slug: k.slug,
+      nama_kebaya: k.nama,
+      deskripsi: k.deskripsi,
+      harga_sewa_per_hari: k.harga,
+      foto_url: k.foto ? `/images/${k.foto}` : null,
+      foto_belakang_url: k.foto_belakang ? `/images/${k.foto_belakang}` : null,
+      kain_utama: k.kain_utama || null,
+      furing: k.furing || null,
+      karakteristik_kain: k.karakteristik_kain || null,
+      detail_payet: k.detail_payet || null,
+      rekomendasi_acara: k.rekomendasi_acara || null,
+      tersedia: k.status === 'aktif',
+      status: k.status,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // POST /api/kebaya/:slug/toggle
 router.post('/:slug/toggle', auth, checkRole('admin', 'super_admin'), (req, res) => {
   try {

@@ -147,7 +147,7 @@ function SewaModal({ kebaya, onClose }) {
 
 export default function Welcome() {
   const [kebayas, setKebayas] = useState([])
-  const [selected, setSelected] = useState(null)
+  const [selected, setSelected] = useState(null) // ponytail: kept for SewaModal if re-enabled
   const [menuOpen, setMenuOpen] = useState(false)
 
   useEffect(() => {
@@ -235,7 +235,7 @@ export default function Welcome() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {kebayas.map((k) => (
-                <div key={k.slug || k.id} className="group bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 border border-stone-100">
+                <Link key={k.slug || k.id} to={`/kebaya/${k.slug}`} className="group bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 border border-stone-100">
                   <div className="relative overflow-hidden aspect-[3/4] bg-stone-100">
                     <img
                       src={k.gambar || 'https://placehold.co/400x533/2C1A0E/fbbf24?text=Kebaya'}
@@ -254,16 +254,12 @@ export default function Welcome() {
                     <p className="text-stone-500 text-sm mb-3 line-clamp-2">{k.deskripsi || 'Kebaya premium berkualitas tinggi'}</p>
                     <div className="flex items-center justify-between">
                       <span className="text-amber-600 font-bold text-lg">{fmt.format(k.harga)}</span>
-                      <button
-                        onClick={() => setSelected(k)}
-                        disabled={k.status === 'disewa'}
-                        className="px-4 py-2 rounded-lg bg-[#2C1A0E] text-white text-sm font-semibold hover:bg-[#3D2518] transition disabled:opacity-40 disabled:cursor-not-allowed"
-                      >
-                        Sewa
-                      </button>
+                      <span className="px-4 py-2 rounded-lg bg-[#2C1A0E] text-white text-sm font-semibold group-hover:bg-[#3D2518] transition">
+                        Lihat Detail
+                      </span>
                     </div>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           )}
