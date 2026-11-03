@@ -26,7 +26,12 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#FAF8F5] px-4">
+    <div className="min-h-screen flex items-center justify-center bg-[#FAF8F5] px-4 relative">
+      <Link to="/" className="absolute top-6 left-6 inline-flex items-center gap-1.5 text-sm text-stone-500 hover:text-amber-600 font-medium transition">
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+        Kembali
+      </Link>
+
       <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-[#2C1A0E]">{cfg.APP_NAME}</h1>
@@ -77,6 +82,10 @@ export default function Login() {
             Daftar
           </Link>
         </p>
+
+        <Link to="/" className="block text-center text-sm text-stone-400 hover:text-amber-600 transition mt-3">
+          &larr; Kembali ke Beranda
+        </Link>
       </div>
     </div>
   );
