@@ -1,0 +1,158 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ═══════════════════════════════════════════════════════
+//  USERS
+// ═══════════════════════════════════════════════════════
+model User {
+  id               Int       @id @default(autoincrement())
+  name             String    @db.VarChar(255)
+  email            String    @unique @db.VarChar(255)
+  role             UserRole  @default(admin)
+  password         String    @db.VarChar(255)
+  emailVerifiedAt  DateTime? @map("email_verified_at")
+  rememberToken    String?   @map("remember_token") @db.VarChar(100)
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+enum UserRole {
+  super_admin
+  admin
+  owner
+}
+
+// ═══════════════════════════════════════════════════════
+//  PASSWORD RESET TOKENS
+// ═══════════════════════════════════════════════════════
+model PasswordResetToken {
+  email     String   @id @db.VarChar(255)
+  token     String   @db.VarChar(255)
+  createdAt DateTime? @map("created_at")
+
+  @@map("password_reset_tokens")
+}
+
+// ═══════════════════════════════════════════════════════
+//  SESSIONS
+// ═══════════════════════════════════════════════════════
+model Session {
+  id           String   @id @db.VarChar(255)
+  userId       Int?     @map("user_id")
+  ipAddress    String?  @map("ip_address") @db.VarChar(45)
+  userAgent    String?  @map("user_agent") @db.Text
+  payload      String   @db.LongText
+  lastActivity Int      @map("last_activity")
+
+  @@index([userId])
+  @@index([lastActivity])
+  @@map("sessions")
+}
+
+// ═══════════════════════════════════════════════════════
+//  TRANSAKSI SEWA (PRIMARY)
+// ═══════════════════════════════════════════════════════
+model TransaksiSewa {
+  id                  Int       @id @default(autoincrement())
+  kodeTransaksi       String    @unique @map("kode_transaksi") @db.VarChar(255)
+  namaKebaya          String    @map("nama_kebaya") @db.VarChar(255)
+  warnaCustomAi       String?   @default("Default") @map("warna_custom_ai") @db.VarChar(255)
+  gambarAiResult      String?   @map("gambar_ai_result") @db.Text
+  namaUser            String    @map("nama_user") @db.VarChar(255)
+  noWa                String    @map("no_wa") @db.VarChar(20)
+  ukuran              String    @default("M") @db.VarChar(10)
+  metodePembayaran    String    @map("metode_pembayaran") @db.VarChar(255)
+  skemaBayar          String?   @default("DP 50%") @map("skema_bayar") @db.VarChar(255)
+  alamat              String?   @db.Text
+  tanggalSewa         DateTime? @map("tanggal_sewa") @db.Date
+  tanggalPengembalian DateTime? @map("tanggal_pengembalian") @db.Date
+  durasiHari          Int       @default(1) @map("durasi_hari")
+  status              String    @default("Menunggu Fitting & Konfirmasi") @db.VarChar(255)
+  totalHarga          Decimal   @default(0) @map("total_harga") @db.Decimal(12, 2)
+  sudahBayar          Boolean   @default(false) @map("sudah_bayar")
+  konfirmasiPembayaran String?  @map("konfirmasi_pembayaran") @db.VarChar(255)
+  paymentStatus       PaymentStatus @default(pending) @map("payment_status")
+  transactionId       String?   @map("transaction_id") @db.VarChar(100)
+  snapToken           String?   @map("snap_token") @db.VarChar(255)
+  qrisUrl             String?   @map("qris_url") @db.VarChar(500)
+  paidAt              DateTime? @map("paid_at")
+  jumlahDibayar       Decimal   @default(0) @map("jumlah_dibayar") @db.Decimal(12, 2)
+  catatanAdmin        String?   @map("catatan_admin") @db.Text
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  chatRooms           ChatRoom[]
+
+  @@map("transaksi_sewa")
+}
+
+enum PaymentStatus {
+  pending
+  paid
+  failed
+  expired
+  challenge
+}
+
+// ═══════════════════════════════════════════════════════
+//  CHAT ROOMS
+// ═══════════════════════════════════════════════════════
+model ChatRoom {
+  id              Int       @id @default(autoincrement())
+  sessionId       String    @map("session_id") @db.VarChar(100)
+  orderId         Int?      @map("order_id")
+  transactionCode String?   @map("transaction_code") @db.VarChar(50)
+  customerName    String    @map("customer_name") @db.VarChar(100)
+  customerContact String?   @map("customer_contact") @db.VarChar(50)
+  status          ChatRoomStatus @default(open)
+  lastMessageAt   DateTime? @map("last_message_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  messages        Message[]
+  transaksi       TransaksiSewa? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@unique([sessionId, orderId])
+  @@index([orderId])
+  @@index([status])
+  @@map("chat_rooms")
+}
+
+enum ChatRoomStatus {
+  open
+  closed
+}
+
+// ═══════════════════════════════════════════════════════
+//  MESSAGES
+// ═══════════════════════════════════════════════════════
+model Message {
+  id         Int        @id @default(autoincrement())
+  roomId     Int        @map("room_id")
+  senderType SenderType @map("sender_type")
+  senderName String?    @map("sender_name") @db.VarChar(100)
+  message    String     @db.Text
+  isRead     Boolean    @default(false) @map("is_read")
+  createdAt  DateTime   @default(now()) @map("created_at")
+  updatedAt  DateTime   @updatedAt @map("updated_at")
+
+  room       ChatRoom   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@index([roomId])
+  @@index([senderType])
+  @@index([isRead])
+  @@map("messages")
+}
+
+enum SenderType {
+  customer
+  admin
+}
