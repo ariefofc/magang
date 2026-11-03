@@ -238,7 +238,7 @@ export default function Welcome() {
                 <div key={k.slug || k.id} className="group bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 border border-stone-100">
                   <div className="relative overflow-hidden aspect-[3/4] bg-stone-100">
                     <img
-                      src={k.gambar?.startsWith('http') ? k.gambar : `/uploads/${k.gambar}`}
+                      src={k.gambar || 'https://placehold.co/400x533/2C1A0E/fbbf24?text=Kebaya'}
                       alt={k.nama}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       onError={(e) => { e.target.src = 'https://placehold.co/400x533/2C1A0E/fbbf24?text=Kebaya' }}

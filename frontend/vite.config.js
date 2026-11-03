@@ -17,6 +17,14 @@ export default defineConfig(({ mode }) => {
           target: env.VITE_BACKEND_URL || 'http://localhost:5000',
           changeOrigin: true,
         },
+        '/images': {
+          target: env.VITE_BACKEND_URL || 'http://localhost:5000',
+          changeOrigin: true,
+        },
+        '/uploads': {
+          target: env.VITE_BACKEND_URL || 'http://localhost:5000',
+          changeOrigin: true,
+        },
       },
     },
   }
