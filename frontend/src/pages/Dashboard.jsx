@@ -148,6 +148,29 @@ export default function Dashboard() {
     } catch { /* ignore */ }
   };
 
+  const deleteKebaya = async (slug) => {
+    if (!confirm('Hapus kebaya ini? Data tidak bisa dikembalikan.')) return;
+    try {
+      await api.delete(`/kebaya/${slug}`);
+      fetchKebaya();
+    } catch { /* ignore */ }
+  };
+
+  const saveKebaya = async (formData, slug) => {
+    try {
+      if (slug) {
+        await api.put(`/kebaya/${slug}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      } else {
+        await api.post('/kebaya', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      }
+      fetchKebaya();
+      return true;
+    } catch (err) {
+      alert(err.response?.data?.message || 'Gagal menyimpan kebaya.');
+      return false;
+    }
+  };
+
   const applyFilters = () => { setPage(1); fetchDashboard(1, filters); };
 
   const saveConfig = async () => {
@@ -258,7 +281,7 @@ export default function Dashboard() {
           )}
 
           {!loading && activeTab === 'katalog' && (
-            <TabKatalog items={kebaya} onToggle={toggleKebaya} />
+            <TabKatalog items={kebaya} onToggle={toggleKebaya} onDelete={deleteKebaya} onSave={saveKebaya} />
           )}
 
           {!loading && activeTab === 'fitting' && (
@@ -384,35 +407,144 @@ function TabPemesanan({ rows, pagination, page, setPage, onStatusChange, onDelet
 }
 
 // ── TAB: Katalog ──
-function TabKatalog({ items, onToggle }) {
+function TabKatalog({ items, onToggle, onDelete, onSave }) {
+  const [showModal, setShowModal] = useState(false);
+  const [editing, setEditing] = useState(null); // null = add, object = edit
+  const [form, setForm] = useState({});
+  const [fotoFile, setFotoFile] = useState(null);
+  const [fotoBelakangFile, setFotoBelakangFile] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  const openAdd = () => { setEditing(null); setForm({ nama: '', deskripsi: '', harga: '', kain_utama: '', furing: '', karakteristik_kain: '', detail_payet: '', rekomendasi_acara: '', status: 'aktif' }); setFotoFile(null); setFotoBelakangFile(null); setShowModal(true); };
+  const openEdit = (k) => { setEditing(k); setForm({ nama: k.nama, deskripsi: k.deskripsi || '', harga: k.harga || '', kain_utama: k.kain_utama || '', furing: k.furing || '', karakteristik_kain: k.karakteristik_kain || '', detail_payet: k.detail_payet || '', rekomendasi_acara: k.rekomendasi_acara || '', status: k.status || 'aktif' }); setFotoFile(null); setFotoBelakangFile(null); setShowModal(true); };
+  const close = () => { setShowModal(false); setEditing(null); };
+
+  const handleSave = async () => {
+    if (!form.nama) return alert('Nama kebaya wajib diisi.');
+    setSaving(true);
+    const fd = new FormData();
+    Object.entries(form).forEach(([k, v]) => fd.append(k, v));
+    if (fotoFile) fd.append('foto', fotoFile);
+    if (fotoBelakangFile) fd.append('foto_belakang', fotoBelakangFile);
+    const ok = await onSave(fd, editing?.slug || null);
+    setSaving(false);
+    if (ok) close();
+  };
+
+  const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
+  const inputCls = 'w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition';
+  const labelCls = 'block text-xs font-semibold text-stone-500 uppercase tracking-wide mb-1';
+
   return (
     <div>
-      <h3 className="font-bold text-[#2C1A0E] mb-4">Katalog Kebaya</h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-bold text-[#2C1A0E]">Katalog Kebaya</h3>
+        <button onClick={openAdd} className="px-4 py-2 rounded-lg bg-amber-400 text-[#2C1A0E] text-sm font-bold hover:bg-amber-500 transition">+ Tambah Kebaya</button>
+      </div>
+
       {items.length === 0 && <p className="text-gray-400">Tidak ada data katalog.</p>}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
         {items.map(k => (
           <div key={k.slug} className="bg-white rounded-xl shadow-sm overflow-hidden border">
-            {k.foto && (
-              <img src={`/images/${k.foto}`} alt={k.nama} className="w-full h-48 object-cover" />
-            )}
-            <div className="p-4">
-              <h4 className="font-semibold text-sm text-[#2C1A0E] mb-1">{k.nama}</h4>
-              <p className="text-xs text-gray-500 mb-3 line-clamp-2">{k.deskripsi}</p>
-              <div className="flex items-center justify-between">
+            <div className="aspect-[3/4] bg-stone-100 overflow-hidden">
+              {k.foto ? (
+                <img src={`/images/${k.foto}`} alt={k.nama} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-stone-300 text-sm">Belum ada foto</div>
+              )}
+            </div>
+            <div className="p-4 space-y-2">
+              <h4 className="font-semibold text-sm text-[#2C1A0E] truncate">{k.nama}</h4>
+              <p className="text-xs text-gray-500 line-clamp-2">{k.deskripsi}</p>
+              <p className="text-amber-600 font-bold text-sm">Rp {(k.harga || 0).toLocaleString('id-ID')}</p>
+              <div className="flex items-center justify-between gap-2">
                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${KEBAYA_STATUS_COLORS[k.status] || 'bg-gray-100 text-gray-600'}`}>
                   {k.status}
                 </span>
-                <button
-                  onClick={() => onToggle(k.slug)}
-                  className="text-xs px-3 py-1 rounded-lg bg-[#2C1A0E] text-white hover:bg-[#3d2517] transition"
-                >
-                  Toggle Status
-                </button>
+                <div className="flex gap-1">
+                  <button onClick={() => onToggle(k.slug)} title="Toggle Status" className="text-xs px-2 py-1 rounded bg-stone-100 hover:bg-stone-200 transition">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                  </button>
+                  <button onClick={() => openEdit(k)} title="Edit" className="text-xs px-2 py-1 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                  </button>
+                  <button onClick={() => onDelete(k.slug)} title="Hapus" className="text-xs px-2 py-1 rounded bg-red-50 text-red-600 hover:bg-red-100 transition">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         ))}
       </div>
+
+      {/* ── Add/Edit Modal ── */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={close}>
+          <div className="bg-[#FAF8F5] rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="bg-[#2C1A0E] text-white px-6 py-4 rounded-t-2xl flex items-center justify-between">
+              <h3 className="text-lg font-bold">{editing ? 'Edit Kebaya' : 'Tambah Kebaya Baru'}</h3>
+              <button onClick={close} className="text-white/70 hover:text-white text-2xl leading-none">&times;</button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              {/* Row 1: Nama + Harga */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div><label className={labelCls}>Nama Kebaya *</label><input className={inputCls} value={form.nama} onChange={set('nama')} placeholder="Nama kebaya" /></div>
+                <div><label className={labelCls}>Harga Sewa / Hari (Rp)</label><input type="number" className={inputCls} value={form.harga} onChange={set('harga')} placeholder="850000" /></div>
+              </div>
+
+              {/* Deskripsi */}
+              <div><label className={labelCls}>Deskripsi</label><textarea className={inputCls} rows={2} value={form.deskripsi} onChange={set('deskripsi')} placeholder="Deskripsi singkat kebaya" /></div>
+
+              {/* Row 2: Kain + Furing */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div><label className={labelCls}>Kain Utama</label><input className={inputCls} value={form.kain_utama} onChange={set('kain_utama')} /></div>
+                <div><label className={labelCls}>Furing</label><input className={inputCls} value={form.furing} onChange={set('furing')} /></div>
+              </div>
+
+              {/* Karakteristik + Payet */}
+              <div><label className={labelCls}>Karakteristik Kain</label><textarea className={inputCls} rows={2} value={form.karakteristik_kain} onChange={set('karakteristik_kain')} /></div>
+              <div><label className={labelCls}>Detail Payet</label><textarea className={inputCls} rows={2} value={form.detail_payet} onChange={set('detail_payet')} /></div>
+
+              {/* Rekomendasi + Status */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div><label className={labelCls}>Rekomendasi Acara</label><input className={inputCls} value={form.rekomendasi_acara} onChange={set('rekomendasi_acara')} /></div>
+                <div><label className={labelCls}>Status</label>
+                  <select className={inputCls} value={form.status} onChange={set('status')}>
+                    <option value="aktif">Aktif</option>
+                    <option value="nonaktif">Nonaktif</option>
+                    <option value="perbaikan">Perbaikan</option>
+                    <option value="segera">Segera Hadir</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Foto Upload */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelCls}>Foto Depan</label>
+                  {editing?.foto && !fotoFile && <p className="text-xs text-stone-400 mb-1">Saat ini: {editing.foto}</p>}
+                  <input type="file" accept="image/*" onChange={e => setFotoFile(e.target.files[0] || null)} className="w-full text-sm file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-amber-50 file:text-amber-700 file:font-medium file:cursor-pointer hover:file:bg-amber-100" />
+                </div>
+                <div>
+                  <label className={labelCls}>Foto Belakang</label>
+                  {editing?.foto_belakang && !fotoBelakangFile && <p className="text-xs text-stone-400 mb-1">Saat ini: {editing.foto_belakang}</p>}
+                  <input type="file" accept="image/*" onChange={e => setFotoBelakangFile(e.target.files[0] || null)} className="w-full text-sm file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-amber-50 file:text-amber-700 file:font-medium file:cursor-pointer hover:file:bg-amber-100" />
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-2">
+                <button onClick={close} className="flex-1 py-2.5 rounded-lg border border-stone-300 text-stone-600 font-medium hover:bg-stone-100 transition">Batal</button>
+                <button onClick={handleSave} disabled={saving} className="flex-1 py-2.5 rounded-lg bg-amber-400 text-[#2C1A0E] font-bold hover:bg-amber-500 transition disabled:opacity-50">
+                  {saving ? 'Menyimpan...' : editing ? 'Simpan Perubahan' : 'Tambah Kebaya'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -6,86 +6,175 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// File upload config
+const imgDir = path.join(__dirname, '..', '..', 'public', 'images');
+if (!fs.existsSync(imgDir)) fs.mkdirSync(imgDir, { recursive: true });
+
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = path.join(__dirname, '..', '..', 'public', 'images');
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + '-' + file.originalname);
-  },
+  destination: (req, file, cb) => cb(null, imgDir),
+  filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname),
 });
 const upload = multer({ storage });
 
-// GET /api/kebaya - Public catalog
-router.get('/', (req, res) => {
+const svc = new KebayaService();
+
+// Helper: format kebaya for public API
+const toPublic = (k) => ({
+  slug: k.slug,
+  nama_kebaya: k.nama,
+  deskripsi: k.deskripsi,
+  harga_sewa_per_hari: k.harga,
+  foto_url: k.foto ? `/images/${k.foto}` : null,
+  foto_belakang_url: k.fotoBelakang ? `/images/${k.fotoBelakang}` : null,
+  kain_utama: k.kainUtama,
+  furing: k.furing,
+  karakteristik_kain: k.karakteristikKain,
+  detail_payet: k.detailPayet,
+  rekomendasi_acara: k.rekomendasiAcara,
+  tersedia: k.status === 'aktif',
+  status: k.status,
+});
+
+// Helper: format for admin API
+const toAdmin = (k) => ({
+  id: k.id,
+  slug: k.slug,
+  nama: k.nama,
+  deskripsi: k.deskripsi,
+  harga: k.harga,
+  foto: k.foto,
+  foto_belakang: k.fotoBelakang,
+  kain_utama: k.kainUtama,
+  furing: k.furing,
+  karakteristik_kain: k.karakteristikKain,
+  detail_payet: k.detailPayet,
+  rekomendasi_acara: k.rekomendasiAcara,
+  status: k.status,
+  created_at: k.createdAt,
+});
+
+// GET /api/kebaya — Public catalog
+router.get('/', async (req, res) => {
   try {
-    const service = new KebayaService();
-    const kebaya = service.getPublic().map(k => ({
-      slug: k.slug || '',
-      nama_kebaya: k.nama,
-      deskripsi: k.deskripsi,
-      harga_sewa_per_hari: k.harga,
-      foto_url: k.foto ? `/images/${k.foto}` : null,
-      foto_belakang_url: k.foto_belakang ? `/images/${k.foto_belakang}` : null,
-      kain_utama: k.kain_utama || 'Brokat / Katun Premium',
-      furing: k.furing || 'Furing Katun Hero Adem',
-      karakteristik_kain: k.karakteristik_kain || 'Soft, halus, dan nyaman dipakai',
-      detail_payet: k.detail_payet || 'Payet & Bordir Eksklusif',
-      rekomendasi_acara: k.rekomendasi_acara || 'Wisuda & Resepsi',
-      tersedia: k.status === 'aktif',
-      status: k.status,
-    }));
-    res.json({ kebaya });
+    const list = await svc.getPublic();
+    res.json({ kebaya: list.map(toPublic) });
   } catch (err) {
     res.json({ kebaya: [] });
   }
 });
 
-// GET /api/kebaya/all - Admin: all kebaya with status
-router.get('/all', auth, checkRole('admin', 'super_admin'), (req, res) => {
+// GET /api/kebaya/all — Admin: all kebaya
+router.get('/all', auth, checkRole('admin', 'super_admin'), async (req, res) => {
   try {
-    const service = new KebayaService();
-    res.json({ kebaya: service.getAll() });
+    const list = await svc.getAll();
+    res.json({ kebaya: list.map(toAdmin) });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-// GET /api/kebaya/:slug - Public detail
-router.get('/:slug', (req, res) => {
+// GET /api/kebaya/:slug — Public detail
+router.get('/:slug', async (req, res) => {
   try {
-    const service = new KebayaService();
-    const all = service.getPublic();
-    const k = all.find(x => x.slug === req.params.slug);
+    const k = await svc.findBySlug(req.params.slug);
     if (!k) return res.status(404).json({ message: 'Kebaya tidak ditemukan.' });
-    res.json({
-      slug: k.slug,
-      nama_kebaya: k.nama,
-      deskripsi: k.deskripsi,
-      harga_sewa_per_hari: k.harga,
-      foto_url: k.foto ? `/images/${k.foto}` : null,
-      foto_belakang_url: k.foto_belakang ? `/images/${k.foto_belakang}` : null,
-      kain_utama: k.kain_utama || null,
-      furing: k.furing || null,
-      karakteristik_kain: k.karakteristik_kain || null,
-      detail_payet: k.detail_payet || null,
-      rekomendasi_acara: k.rekomendasi_acara || null,
-      tersedia: k.status === 'aktif',
-      status: k.status,
-    });
+    res.json(toPublic(k));
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// POST /api/kebaya — Create kebaya
+router.post('/', auth, checkRole('admin', 'super_admin'), upload.fields([
+  { name: 'foto', maxCount: 1 },
+  { name: 'foto_belakang', maxCount: 1 },
+]), async (req, res) => {
+  try {
+    const data = {
+      nama: req.body.nama,
+      deskripsi: req.body.deskripsi || null,
+      harga: parseInt(req.body.harga) || 0,
+      foto: req.files?.foto?.[0]?.filename || null,
+      fotoBelakang: req.files?.foto_belakang?.[0]?.filename || null,
+      kainUtama: req.body.kain_utama || null,
+      furing: req.body.furing || null,
+      karakteristikKain: req.body.karakteristik_kain || null,
+      detailPayet: req.body.detail_payet || null,
+      rekomendasiAcara: req.body.rekomendasi_acara || null,
+      status: req.body.status || 'aktif',
+    };
+    if (!data.nama) return res.status(422).json({ message: 'Nama kebaya wajib diisi.' });
+    const k = await svc.create(data);
+    res.status(201).json({ message: 'Kebaya berhasil ditambahkan.', kebaya: toAdmin(k) });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// PUT /api/kebaya/:slug — Update kebaya
+router.put('/:slug', auth, checkRole('admin', 'super_admin'), upload.fields([
+  { name: 'foto', maxCount: 1 },
+  { name: 'foto_belakang', maxCount: 1 },
+]), async (req, res) => {
+  try {
+    const existing = await svc.findBySlug(req.params.slug);
+    if (!existing) return res.status(404).json({ message: 'Kebaya tidak ditemukan.' });
+
+    const data = {};
+    if (req.body.nama) data.nama = req.body.nama;
+    if (req.body.deskripsi !== undefined) data.deskripsi = req.body.deskripsi;
+    if (req.body.harga) data.harga = parseInt(req.body.harga);
+    if (req.body.kain_utama !== undefined) data.kainUtama = req.body.kain_utama;
+    if (req.body.furing !== undefined) data.furing = req.body.furing;
+    if (req.body.karakteristik_kain !== undefined) data.karakteristikKain = req.body.karakteristik_kain;
+    if (req.body.detail_payet !== undefined) data.detailPayet = req.body.detail_payet;
+    if (req.body.rekomendasi_acara !== undefined) data.rekomendasiAcara = req.body.rekomendasi_acara;
+    if (req.body.status) data.status = req.body.status;
+
+    if (req.files?.foto?.[0]) {
+      data.foto = req.files.foto[0].filename;
+      // Delete old image
+      if (existing.foto) {
+        const old = path.join(imgDir, existing.foto);
+        if (fs.existsSync(old)) fs.unlinkSync(old);
+      }
+    }
+    if (req.files?.foto_belakang?.[0]) {
+      data.fotoBelakang = req.files.foto_belakang[0].filename;
+      if (existing.fotoBelakang) {
+        const old = path.join(imgDir, existing.fotoBelakang);
+        if (fs.existsSync(old)) fs.unlinkSync(old);
+      }
+    }
+
+    const k = await svc.update(req.params.slug, data);
+    res.json({ message: 'Kebaya berhasil diperbarui.', kebaya: toAdmin(k) });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// DELETE /api/kebaya/:slug
+router.delete('/:slug', auth, checkRole('admin', 'super_admin'), async (req, res) => {
+  try {
+    const existing = await svc.findBySlug(req.params.slug);
+    if (!existing) return res.status(404).json({ message: 'Kebaya tidak ditemukan.' });
+
+    // Delete images
+    if (existing.foto) { const p = path.join(imgDir, existing.foto); if (fs.existsSync(p)) fs.unlinkSync(p); }
+    if (existing.fotoBelakang) { const p = path.join(imgDir, existing.fotoBelakang); if (fs.existsSync(p)) fs.unlinkSync(p); }
+
+    await svc.delete(req.params.slug);
+    res.json({ message: 'Kebaya berhasil dihapus.' });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
 // POST /api/kebaya/:slug/toggle
-router.post('/:slug/toggle', auth, checkRole('admin', 'super_admin'), (req, res) => {
+router.post('/:slug/toggle', auth, checkRole('admin', 'super_admin'), async (req, res) => {
   try {
-    const service = new KebayaService();
-    const newStatus = service.cycleStatus(req.params.slug);
+    const newStatus = await svc.cycleStatus(req.params.slug);
+    if (!newStatus) return res.status(404).json({ message: 'Kebaya tidak ditemukan.' });
     res.json({ slug: req.params.slug, status: newStatus });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -93,85 +182,11 @@ router.post('/:slug/toggle', auth, checkRole('admin', 'super_admin'), (req, res)
 });
 
 // POST /api/kebaya/:slug/status
-router.post('/:slug/status', auth, checkRole('admin', 'super_admin'), (req, res) => {
+router.post('/:slug/status', auth, checkRole('admin', 'super_admin'), async (req, res) => {
   try {
-    const service = new KebayaService();
-    const ok = service.setStatus(req.params.slug, req.body.status);
-    if (!ok) return res.status(400).json({ message: 'Status tidak valid.' });
+    const k = await svc.setStatus(req.params.slug, req.body.status);
+    if (!k) return res.status(400).json({ message: 'Status tidak valid.' });
     res.json({ slug: req.params.slug, status: req.body.status });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// POST /api/kebaya/:slug/hide
-router.post('/:slug/hide', auth, checkRole('admin', 'super_admin'), (req, res) => {
-  try {
-    const service = new KebayaService();
-    service.hide(req.params.slug);
-    res.json({ slug: req.params.slug, status: 'nonaktif' });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// POST /api/kebaya/reset-all
-router.post('/reset-all', auth, checkRole('admin', 'super_admin'), (req, res) => {
-  try {
-    const service = new KebayaService();
-    service.resetAll();
-    res.json({ message: 'Semua status kebaya direset.' });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// POST /api/kebaya - Create new custom kebaya
-router.post('/', auth, checkRole('admin', 'super_admin'), upload.fields([
-  { name: 'foto', maxCount: 1 },
-  { name: 'foto_belakang', maxCount: 1 },
-]), (req, res) => {
-  try {
-    const service = new KebayaService();
-    const data = {
-      ...req.body,
-      harga: parseInt(req.body.harga) || 0,
-      foto: req.files?.foto?.[0]?.filename || null,
-      foto_belakang: req.files?.foto_belakang?.[0]?.filename || null,
-    };
-    service.addCustom(data);
-    res.status(201).json({ message: 'Kebaya berhasil ditambahkan.', data });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// PUT /api/kebaya/:slug/update
-router.put('/:slug/update', auth, checkRole('admin', 'super_admin'), upload.fields([
-  { name: 'foto', maxCount: 1 },
-  { name: 'foto_belakang', maxCount: 1 },
-]), (req, res) => {
-  try {
-    const service = new KebayaService();
-    const data = {
-      ...req.body,
-      harga: req.body.harga ? parseInt(req.body.harga) : undefined,
-      foto: req.files?.foto?.[0]?.filename || undefined,
-      foto_belakang: req.files?.foto_belakang?.[0]?.filename || undefined,
-    };
-    service.updateCustom(req.params.slug, data);
-    res.json({ message: 'Kebaya berhasil diperbarui.', slug: req.params.slug });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// DELETE /api/kebaya/:slug
-router.delete('/:slug', auth, checkRole('admin', 'super_admin'), (req, res) => {
-  try {
-    const service = new KebayaService();
-    service.deleteCustom(req.params.slug);
-    res.json({ message: 'Kebaya berhasil dihapus.' });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
