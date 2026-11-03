@@ -151,7 +151,15 @@ export default function Welcome() {
   const [menuOpen, setMenuOpen] = useState(false)
 
   useEffect(() => {
-    api.get('/kebaya').then((r) => setKebayas(r.data)).catch(() => {})
+    api.get('/kebaya').then((r) => {
+      const list = Array.isArray(r.data) ? r.data : r.data?.kebaya ?? []
+      setKebayas(list.map((k) => ({
+        ...k,
+        nama: k.nama_kebaya ?? k.nama,
+        harga: k.harga_sewa_per_hari ?? k.harga,
+        gambar: k.foto_url ?? k.gambar,
+      })))
+    }).catch(() => {})
   }, [])
 
   const scrollTo = (id) => {
