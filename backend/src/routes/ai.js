@@ -6,18 +6,22 @@ const axios = require('axios');
 router.post('/recolor', async (req, res) => {
   const { image_b64, image_url, color, mask_b64 } = req.body;
 
-  // Tier 1: Python Flask microservice
+  // Tier 1: Python Flask microservice (GrabCut + CIELAB)
   try {
     const pyEndpoint = process.env.PIX2PIX_AI_ENDPOINT || 'http://127.0.0.1:5001/recolor';
     const pyRes = await axios.post(pyEndpoint, {
-      image_b64, image_url, color, mask_b64,
+      image_b64,
+      image_url,
+      color_prompt: color,
+      imageMask: mask_b64,
     }, { timeout: 30000 });
 
-    if (pyRes.data && pyRes.data.result_b64) {
+    if (pyRes.data && (pyRes.data.result_b64 || pyRes.data.image)) {
       return res.json({
         success: true,
-        result_b64: pyRes.data.result_b64,
-        engine: 'pix2pix_python',
+        result_b64: pyRes.data.result_b64 || pyRes.data.image,
+        engine: pyRes.data.engine || 'python_recolor',
+        auto_mask: pyRes.data.auto_mask || false,
       });
     }
   } catch (e) {
@@ -71,11 +75,11 @@ router.post('/recolor', async (req, res) => {
     console.log('[AI Recolor] Google AI unavailable:', e.message);
   }
 
-  // Tier 3: fallback to client-side
+  // Tier 3: fallback
   res.json({
     success: false,
-    message: 'Server AI tidak tersedia. Gunakan Canvas AI di browser.',
-    engine: 'client_fallback',
+    message: 'Server AI tidak tersedia. Pastikan Python recolor service berjalan di port 5001.',
+    engine: 'none',
   });
 });
 

@@ -98,8 +98,20 @@ export default function Payment() {
 
           {/* Transaction Info */}
           <div className="space-y-3 mb-6 text-sm">
+            {data?.gambar_ai && (
+              <div className="flex justify-center mb-3">
+                <img
+                  src={data.gambar_ai}
+                  alt={data.kebaya_name || 'Kebaya'}
+                  className="w-28 h-36 object-cover rounded-xl border border-stone-200 shadow-sm"
+                />
+              </div>
+            )}
             {data?.kebaya_name && (
               <div className="flex justify-between"><span className="text-gray-500">Kebaya</span><span className="font-medium text-[#2C1A0E]">{data.kebaya_name}</span></div>
+            )}
+            {data?.warna_custom && (
+              <div className="flex justify-between"><span className="text-gray-500">Warna (Custom AI)</span><span className="font-medium text-amber-600">{data.warna_custom}</span></div>
             )}
             {data?.customer && (
               <div className="flex justify-between"><span className="text-gray-500">Pelanggan</span><span className="font-medium text-[#2C1A0E]">{data.customer}</span></div>

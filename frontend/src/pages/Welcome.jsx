@@ -36,10 +36,23 @@ function SewaModal({ kebaya, onClose }) {
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
 
+  const tSewa = form.tanggal_sewa ? new Date(form.tanggal_sewa) : null
+  const tKembali = form.tanggal_pengembalian ? new Date(form.tanggal_pengembalian) : null
+  const durasi = (tSewa && tKembali && tKembali >= tSewa)
+    ? Math.max(1, Math.ceil((tKembali - tSewa) / (1000 * 60 * 60 * 24)))
+    : 1
+  const totalHarga = (kebaya.harga || 0) * durasi
+
   const submit = async () => {
     setLoading(true)
     try {
-      const { data } = await api.post('/transaksi', { ...form, kebaya_id: kebaya.id })
+      const { data } = await api.post('/transaksi', {
+        ...form,
+        nama_user: form.nama,
+        nama_kebaya: kebaya.nama,
+        kebaya_id: kebaya.id || kebaya.slug,
+        total_harga: totalHarga,
+      })
       navigate(`/payment/${data.id || data.transaksi?.id}`)
     } catch (err) {
       alert(err.response?.data?.message || 'Gagal membuat transaksi')
@@ -123,7 +136,8 @@ function SewaModal({ kebaya, onClose }) {
               <div className="bg-white rounded-xl p-4 space-y-2 text-sm border border-stone-200">
                 <h4 className="font-bold text-stone-800 mb-2">Ringkasan Pesanan</h4>
                 <div className="flex justify-between"><span className="text-stone-500">Kebaya</span><span className="font-medium">{kebaya.nama}</span></div>
-                <div className="flex justify-between"><span className="text-stone-500">Harga</span><span className="font-medium">{fmt.format(kebaya.harga)}</span></div>
+                <div className="flex justify-between"><span className="text-stone-500">Durasi</span><span className="font-medium">{durasi} hari</span></div>
+                <div className="flex justify-between"><span className="text-stone-500">Total Harga</span><span className="font-bold text-amber-600">{fmt.format(totalHarga)}</span></div>
                 <div className="flex justify-between"><span className="text-stone-500">Nama</span><span className="font-medium">{form.nama}</span></div>
                 <div className="flex justify-between"><span className="text-stone-500">WhatsApp</span><span className="font-medium">{form.no_wa}</span></div>
                 <div className="flex justify-between"><span className="text-stone-500">Ukuran</span><span className="font-medium">{form.ukuran}</span></div>

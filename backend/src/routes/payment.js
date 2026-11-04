@@ -101,6 +101,11 @@ router.get('/:id', async (req, res) => {
 
     res.json({
       transaksi,
+      kode_transaksi: transaksi.kodeTransaksi,
+      kebaya_name: transaksi.namaKebaya,
+      customer: transaksi.namaUser,
+      warna_custom: transaksi.warnaCustomAi !== 'Default' ? transaksi.warnaCustomAi : null,
+      gambar_ai: transaksi.gambarAiResult ? (transaksi.gambarAiResult.startsWith('data:') ? transaksi.gambarAiResult : `/${transaksi.gambarAiResult}`) : null,
       nominal,
       skema,
       midtransReady,

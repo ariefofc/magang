@@ -159,15 +159,29 @@ router.post('/', async (req, res) => {
       tanggal_sewa, tanggal_pengembalian, total_harga, sudah_bayar,
     } = req.body;
 
+    const namaCust = (nama_user || req.body.nama || '').trim();
+    let kebayaName = (nama_kebaya || req.body.nama_kebaya || '').trim();
+    if (!kebayaName && req.body.kebaya_id) {
+      const k = await prisma.kebaya.findFirst({
+        where: {
+          OR: [
+            { slug: String(req.body.kebaya_id) },
+            ...(Number.isInteger(Number(req.body.kebaya_id)) ? [{ id: Number(req.body.kebaya_id) }] : []),
+          ],
+        },
+      });
+      if (k) kebayaName = k.nama;
+    }
+
     // Validate
-    if (!nama_kebaya || !nama_user || !no_wa || !ukuran || !metode_pembayaran || !tanggal_sewa || !tanggal_pengembalian) {
+    if (!kebayaName || !namaCust || !no_wa || !ukuran || !metode_pembayaran || !tanggal_sewa || !tanggal_pengembalian) {
       return res.status(422).json({ message: 'Field wajib belum lengkap.' });
     }
 
     // Double booking check
     const overlap = await prisma.transaksiSewa.findFirst({
       where: {
-        namaKebaya: nama_kebaya,
+        namaKebaya: kebayaName,
         status: { notIn: ['Dibatalkan', 'Telah Dikembalikan'] },
         OR: [
           { tanggalSewa: { gte: new Date(tanggal_sewa), lte: new Date(tanggal_pengembalian) } },
@@ -184,7 +198,7 @@ router.post('/', async (req, res) => {
 
     if (overlap) {
       return res.status(422).json({
-        message: `Kebaya "${nama_kebaya}" sudah TERKUNCI pada rentang tanggal tersebut.`,
+        message: `Kebaya "${kebayaName}" sudah TERKUNCI pada rentang tanggal tersebut.`,
       });
     }
 
@@ -192,6 +206,13 @@ router.post('/', async (req, res) => {
     const tKembali = new Date(tanggal_pengembalian);
     const durasi = Math.max(1, Math.ceil((tKembali - tSewa) / (1000 * 60 * 60 * 24)));
     const isBayar = ['1', 'true', true].includes(sudah_bayar);
+
+    // Calculate proper total price if not provided
+    let calculatedTotal = total_harga ? Number(total_harga) : null;
+    if (!calculatedTotal) {
+      const k = await prisma.kebaya.findFirst({ where: { nama: kebayaName } });
+      calculatedTotal = k ? k.harga * durasi : 750000;
+    }
 
     // Handle base64 image
     let savedImage = gambar_ai_result;
@@ -211,10 +232,10 @@ router.post('/', async (req, res) => {
     const transaksi = await prisma.transaksiSewa.create({
       data: {
         kodeTransaksi: kode,
-        namaKebaya: nama_kebaya,
+        namaKebaya: kebayaName,
         warnaCustomAi: warna_custom_ai || 'Default',
         gambarAiResult: savedImage,
-        namaUser: nama_user,
+        namaUser: namaCust,
         noWa: no_wa,
         ukuran,
         metodePembayaran: metode_pembayaran,
@@ -224,12 +245,12 @@ router.post('/', async (req, res) => {
         tanggalPengembalian: tKembali,
         durasiHari: durasi,
         status: isBayar ? 'Menunggu Konfirmasi' : 'Menunggu Pembayaran DP',
-        totalHarga: total_harga || 750000,
+        totalHarga: calculatedTotal,
         sudahBayar: isBayar,
       },
     });
 
-    res.status(201).json({ transaksi, redirect: `/payment/${transaksi.id}` });
+    res.status(201).json({ id: transaksi.id, transaksi, redirect: `/payment/${transaksi.id}` });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -287,7 +308,34 @@ router.get('/nota/:id', async (req, res) => {
       where: { id: parseInt(req.params.id) },
     });
     if (!transaksi) return res.status(404).json({ message: 'Transaksi tidak ditemukan.' });
-    res.json({ transaksi });
+
+    const skema = (transaksi.skemaBayar || 'dp 50%').toLowerCase();
+    let pct = 0.5;
+    if (skema.includes('70')) pct = 0.7;
+    else if (skema.includes('100') || skema.includes('lunas')) pct = 1.0;
+    const nominal_dp = Math.ceil(Number(transaksi.totalHarga) * pct);
+    const sisa = Math.max(0, Number(transaksi.totalHarga) - (transaksi.paymentStatus === 'paid' ? Number(transaksi.jumlahDibayar || nominal_dp) : 0));
+
+    res.json({
+      ...transaksi,
+      transaksi,
+      kode_transaksi: transaksi.kodeTransaksi,
+      kebaya_name: transaksi.namaKebaya,
+      nama_pelanggan: transaksi.namaUser,
+      warna_custom: transaksi.warnaCustomAi !== 'Default' ? transaksi.warnaCustomAi : null,
+      gambar_ai: transaksi.gambarAiResult ? (transaksi.gambarAiResult.startsWith('data:') ? transaksi.gambarAiResult : `/${transaksi.gambarAiResult}`) : null,
+      ukuran: transaksi.ukuran,
+      no_wa: transaksi.noWa,
+      alamat: transaksi.alamat,
+      tanggal_sewa: transaksi.tanggalSewa ? new Date(transaksi.tanggalSewa).toISOString().slice(0, 10) : '',
+      tanggal_pengembalian: transaksi.tanggalPengembalian ? new Date(transaksi.tanggalPengembalian).toISOString().slice(0, 10) : '',
+      durasi: transaksi.durasiHari,
+      total_harga: Number(transaksi.totalHarga),
+      skema: transaksi.skemaBayar,
+      nominal_dp,
+      sisa_pelunasan: sisa,
+      status: transaksi.status,
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
