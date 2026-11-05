@@ -37,17 +37,47 @@ class KebayaService {
     return prisma.kebaya.delete({ where: { slug } });
   }
 
-  async setStatus(slug, status) {
+  async setStatus(slug, status, { createdById, catatan } = {}) {
     const allowed = ['aktif', 'nonaktif', 'perbaikan', 'segera'];
     if (!allowed.includes(status)) return null;
-    return prisma.kebaya.update({ where: { slug }, data: { status } });
+
+    const existing = await prisma.kebaya.findUnique({ where: { slug } });
+    if (!existing) return null;
+
+    const updated = await prisma.kebaya.update({ where: { slug }, data: { status } });
+
+    if (existing.status !== status) {
+      await prisma.kebayaAvailabilityHistory.create({
+        data: {
+          kebayaId: existing.id,
+          statusLama: existing.status,
+          statusBaru: status,
+          catatan: catatan || null,
+          createdById: createdById || null,
+        },
+      });
+    }
+
+    return updated;
   }
 
-  async cycleStatus(slug) {
+  async cycleStatus(slug, { createdById, catatan } = {}) {
     const k = await prisma.kebaya.findUnique({ where: { slug } });
     if (!k) return null;
     const next = { aktif: 'nonaktif', nonaktif: 'perbaikan', perbaikan: 'aktif', segera: 'aktif' }[k.status] || 'aktif';
+
     await prisma.kebaya.update({ where: { slug }, data: { status: next } });
+
+    await prisma.kebayaAvailabilityHistory.create({
+      data: {
+        kebayaId: k.id,
+        statusLama: k.status,
+        statusBaru: next,
+        catatan: catatan || null,
+        createdById: createdById || null,
+      },
+    });
+
     return next;
   }
 }

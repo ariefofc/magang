@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import api from '../services/api'
 import { cfg, brandParts } from '../config'
+import LiveChat from '../components/LiveChat'
 
 const fmt = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 })
 
@@ -344,6 +345,9 @@ export default function Welcome() {
 
       {/* ── Modal ── */}
       {selected && <SewaModal kebaya={selected} onClose={() => setSelected(null)} />}
+
+      {/* ── Live Chat ── */}
+      <LiveChat />
     </div>
   )
 }

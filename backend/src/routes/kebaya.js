@@ -173,7 +173,10 @@ router.delete('/:slug', auth, checkRole('admin', 'super_admin'), async (req, res
 // POST /api/kebaya/:slug/toggle
 router.post('/:slug/toggle', auth, checkRole('admin', 'super_admin'), async (req, res) => {
   try {
-    const newStatus = await svc.cycleStatus(req.params.slug);
+    const newStatus = await svc.cycleStatus(req.params.slug, {
+      createdById: req.user?.id,
+      catatan: req.body.catatan,
+    });
     if (!newStatus) return res.status(404).json({ message: 'Kebaya tidak ditemukan.' });
     res.json({ slug: req.params.slug, status: newStatus });
   } catch (err) {
@@ -184,7 +187,10 @@ router.post('/:slug/toggle', auth, checkRole('admin', 'super_admin'), async (req
 // POST /api/kebaya/:slug/status
 router.post('/:slug/status', auth, checkRole('admin', 'super_admin'), async (req, res) => {
   try {
-    const k = await svc.setStatus(req.params.slug, req.body.status);
+    const k = await svc.setStatus(req.params.slug, req.body.status, {
+      createdById: req.user?.id,
+      catatan: req.body.catatan,
+    });
     if (!k) return res.status(400).json({ message: 'Status tidak valid.' });
     res.json({ slug: req.params.slug, status: req.body.status });
   } catch (err) {

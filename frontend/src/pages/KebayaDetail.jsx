@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import api from '../services/api'
 import { cfg, brandParts } from '../config'
+import LiveChat from '../components/LiveChat'
 
 const fmt = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 })
 
@@ -252,159 +253,160 @@ export default function KebayaDetail() {
             </div>
 
             {/* Specs Card */}
-            {specs.length > 0 && (
-              <div className="bg-white rounded-2xl p-6 border border-stone-200 shadow-sm">
-                <h3 className="text-sm font-semibold text-stone-500 uppercase tracking-wide mb-4">Detail Produk</h3>
-                <div className="space-y-4">
-                  {specs.map((s, i) => (
-                    <div key={i} className="flex gap-3">
-                      <span className="text-xl flex-shrink-0 mt-0.5">{s.icon}</span>
-                      <div>
-                        <p className="text-xs font-semibold text-stone-400 uppercase tracking-wide">{s.label}</p>
-                        <p className="text-stone-700 text-sm mt-0.5">{s.value}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Skema Pembayaran Card */}
+          {specs.length > 0 && (
             <div className="bg-white rounded-2xl p-6 border border-stone-200 shadow-sm">
-              <h3 className="text-sm font-semibold text-stone-500 uppercase tracking-wide mb-4">Skema Pembayaran</h3>
-              <div className="grid grid-cols-3 gap-3">
-                {SCHEMES.map(s => (
-                  <div key={s.value} className="text-center py-3 px-2 rounded-xl bg-amber-50 border border-amber-200">
-                    <p className="font-bold text-amber-700 text-sm">{s.label}</p>
+              <h3 className="text-sm font-semibold text-stone-500 uppercase tracking-wide mb-4">Detail Produk</h3>
+              <div className="space-y-4">
+                {specs.map((s, i) => (
+                  <div key={i} className="flex gap-3">
+                    <span className="text-xl flex-shrink-0 mt-0.5">{s.icon}</span>
+                    <div>
+                      <p className="text-xs font-semibold text-stone-400 uppercase tracking-wide">{s.label}</p>
+                      <p className="text-stone-700 text-sm mt-0.5">{s.value}</p>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
+          )}
 
-            {/* AI Recolor Card */}
-            {kebaya.foto_url && (
-              <div className="bg-gradient-to-br from-[#2C1A0E] to-[#3D2518] rounded-2xl p-6 border border-stone-700 shadow-sm text-white">
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="text-2xl">🎨</span>
-                  <div>
-                    <h3 className="text-sm font-bold uppercase tracking-wide">AI Recolor</h3>
-                    <p className="text-xs text-stone-400">Visualisasikan kebaya dalam warna favoritmu</p>
-                  </div>
+          {/* Skema Pembayaran Card */}
+          <div className="bg-white rounded-2xl p-6 border border-stone-200 shadow-sm">
+            <h3 className="text-sm font-semibold text-stone-500 uppercase tracking-wide mb-4">Skema Pembayaran</h3>
+            <div className="grid grid-cols-3 gap-3">
+              {SCHEMES.map(s => (
+                <div key={s.value} className="text-center py-3 px-2 rounded-xl bg-amber-50 border border-amber-200">
+                  <p className="font-bold text-amber-700 text-sm">{s.label}</p>
                 </div>
-
-                {/* Preset Colors */}
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {[
-                    { name: 'Sage Green', hex: '#8fbc8f' },
-                    { name: 'Navy Blue', hex: '#1a3a5c' },
-                    { name: 'Dusty Rose', hex: '#c4a0a0' },
-                    { name: 'Burgundy', hex: '#722f37' },
-                    { name: 'Gold', hex: '#d4a847' },
-                    { name: 'Lavender', hex: '#b8a9c9' },
-                    { name: 'Coral', hex: '#e07050' },
-                    { name: 'Emerald', hex: '#2d8a5e' },
-                  ].map(c => (
-                    <button
-                      key={c.name}
-                      onClick={() => { setRecolorColor(c.name); handleRecolor(c.name) }}
-                      disabled={recolorLoading}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 transition text-xs font-medium disabled:opacity-40"
-                    >
-                      <span className="w-3 h-3 rounded-full border border-white/30" style={{ backgroundColor: c.hex }} />
-                      {c.name}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Custom Color Input */}
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={recolorColor}
-                    onChange={e => setRecolorColor(e.target.value)}
-                    placeholder="Ketik warna (misal: merah muda, teal, gold)"
-                    className="flex-1 rounded-lg bg-white/10 border border-white/20 px-3 py-2 text-sm text-white placeholder-stone-400 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 outline-none transition"
-                  />
-                  <button
-                    onClick={() => handleRecolor(recolorColor)}
-                    disabled={recolorLoading || !recolorColor.trim()}
-                    className="px-4 py-2 rounded-lg bg-amber-400 text-[#2C1A0E] font-bold text-sm hover:bg-amber-500 transition disabled:opacity-40"
-                  >
-                    {recolorLoading ? '...' : 'Ubah'}
-                  </button>
-                </div>
-
-                {recolorResult && (
-                  <p className="text-xs text-emerald-400 mt-2">Warna berhasil diubah! Klik "Lihat Asli" pada gambar untuk kembali.</p>
-                )}
-              </div>
-            )}
-
-            {/* CTA — Sticky on mobile */}
-            <div className="bg-white rounded-2xl p-6 border border-stone-200 shadow-sm lg:sticky lg:bottom-0">
-              <div className="flex flex-col sm:flex-row gap-3">
-                <button
-                  onClick={() => setShowSewa(true)}
-                  disabled={!kebaya.tersedia}
-                  className="flex-1 py-3.5 rounded-xl bg-amber-400 text-[#2C1A0E] font-bold text-lg hover:bg-amber-500 shadow-lg shadow-amber-400/20 transition disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  Sewa Sekarang
-                </button>
-                <a
-                  href={`https://wa.me/${cfg.CONTACT_WA.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Halo, saya tertarik dengan ${kebaya.nama_kebaya}`)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 py-3.5 rounded-xl border-2 border-[#2C1A0E] text-[#2C1A0E] font-bold text-lg text-center hover:bg-[#2C1A0E] hover:text-white transition"
-                >
-                  Chat via WA
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Kebaya Lainnya */}
-        {others.length > 0 && (
-          <div className="mt-16">
-            <h2 className="text-2xl font-bold text-[#2C1A0E] mb-6">Koleksi Lainnya</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-              {others.map(k => (
-                <Link
-                  key={k.slug}
-                  to={`/kebaya/${k.slug}`}
-                  className="group bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 border border-stone-100"
-                >
-                  <div className="aspect-[3/4] bg-stone-100 overflow-hidden">
-                    <img
-                      src={k.foto_url || placeholder}
-                      alt={k.nama_kebaya}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      onError={e => { e.target.src = placeholder }}
-                    />
-                  </div>
-                  <div className="p-3">
-                    <h3 className="font-semibold text-[#2C1A0E] text-sm truncate">{k.nama_kebaya}</h3>
-                    <p className="text-amber-600 font-bold text-sm mt-1">{fmt.format(k.harga_sewa_per_hari)}</p>
-                  </div>
-                </Link>
               ))}
             </div>
           </div>
-        )}
+
+          {/* AI Recolor Card */}
+          {kebaya.foto_url && (
+            <div className="bg-gradient-to-br from-[#2C1A0E] to-[#3D2518] rounded-2xl p-6 border border-stone-700 shadow-sm text-white">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-2xl">🎨</span>
+                <div>
+                  <h3 className="text-sm font-bold uppercase tracking-wide">AI Recolor</h3>
+                  <p className="text-xs text-stone-400">Visualisasikan kebaya dalam warna favoritmu</p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2 mb-4">
+                {[
+                  { name: 'Sage Green', hex: '#8fbc8f' },
+                  { name: 'Navy Blue', hex: '#1a3a5c' },
+                  { name: 'Dusty Rose', hex: '#c4a0a0' },
+                  { name: 'Burgundy', hex: '#722f37' },
+                  { name: 'Gold', hex: '#d4a847' },
+                  { name: 'Lavender', hex: '#b8a9c9' },
+                  { name: 'Coral', hex: '#e07050' },
+                  { name: 'Emerald', hex: '#2d8a5e' },
+                ].map(c => (
+                  <button
+                    key={c.name}
+                    onClick={() => { setRecolorColor(c.name); handleRecolor(c.name) }}
+                    disabled={recolorLoading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 transition text-xs font-medium disabled:opacity-40"
+                  >
+                    <span className="w-3 h-3 rounded-full border border-white/30" style={{ backgroundColor: c.hex }} />
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={recolorColor}
+                  onChange={e => setRecolorColor(e.target.value)}
+                  placeholder="Ketik warna (misal: merah muda, teal, gold)"
+                  className="flex-1 rounded-lg bg-white/10 border border-white/20 px-3 py-2 text-sm text-white placeholder-stone-400 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 outline-none transition"
+                />
+                <button
+                  onClick={() => handleRecolor(recolorColor)}
+                  disabled={recolorLoading || !recolorColor.trim()}
+                  className="px-4 py-2 rounded-lg bg-amber-400 text-[#2C1A0E] font-bold text-sm hover:bg-amber-500 transition disabled:opacity-40"
+                >
+                  {recolorLoading ? '...' : 'Ubah'}
+                </button>
+              </div>
+
+              {recolorResult && (
+                <p className="text-xs text-emerald-400 mt-2">Warna berhasil diubah! Klik "Lihat Asli" pada gambar untuk kembali.</p>
+              )}
+            </div>
+          )}
+
+          {/* CTA */}
+          <div className="bg-white rounded-2xl p-6 border border-stone-200 shadow-sm lg:sticky lg:bottom-0">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={() => setShowSewa(true)}
+                disabled={!kebaya.tersedia}
+                className="flex-1 py-3.5 rounded-xl bg-amber-400 text-[#2C1A0E] font-bold text-lg hover:bg-amber-500 shadow-lg shadow-amber-400/20 transition disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Sewa Sekarang
+              </button>
+              <a
+                href={`https://wa.me/${cfg.CONTACT_WA.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Halo, saya tertarik dengan ${kebaya.nama_kebaya}`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 py-3.5 rounded-xl border-2 border-[#2C1A0E] text-[#2C1A0E] font-bold text-lg text-center hover:bg-[#2C1A0E] hover:text-white transition"
+              >
+                Chat via WA
+              </a>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Sewa Modal */}
-      {showSewa && (
-        <SewaModal
-          kebaya={kebaya}
-          customColor={recolorColor}
-          customImage={recolorResult}
-          onClose={() => setShowSewa(false)}
-        />
+      {/* Kebaya Lainnya */}
+      {others.length > 0 && (
+        <div className="mt-16">
+          <h2 className="text-2xl font-bold text-[#2C1A0E] mb-6">Koleksi Lainnya</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {others.map(k => (
+              <Link
+                key={k.slug}
+                to={`/kebaya/${k.slug}`}
+                className="group bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 border border-stone-100"
+              >
+                <div className="aspect-[3/4] bg-stone-100 overflow-hidden">
+                  <img
+                    src={k.foto_url || placeholder}
+                    alt={k.nama_kebaya}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    onError={e => { e.target.src = placeholder }}
+                  />
+                </div>
+                <div className="p-3">
+                  <h3 className="font-semibold text-[#2C1A0E] text-sm truncate">{k.nama_kebaya}</h3>
+                  <p className="text-amber-600 font-bold text-sm mt-1">{fmt.format(k.harga_sewa_per_hari)}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
       )}
     </div>
+
+    {/* Sewa Modal */}
+    {showSewa && (
+      <SewaModal
+        kebaya={kebaya}
+        customColor={recolorColor}
+        customImage={recolorResult}
+        onClose={() => setShowSewa(false)}
+      />
+    )}
+
+    <LiveChat />
+  </div>
   )
 }
+
 
 /* ── Sewa Modal (inline, same as Welcome) ── */
 function SewaModal({ kebaya, customColor, customImage, onClose }) {

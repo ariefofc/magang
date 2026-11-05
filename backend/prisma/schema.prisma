@@ -11,15 +11,17 @@ datasource db {
 //  USERS
 // ═══════════════════════════════════════════════════════
 model User {
-  id               Int       @id @default(autoincrement())
-  name             String    @db.VarChar(255)
-  email            String    @unique @db.VarChar(255)
-  role             UserRole  @default(admin)
-  password         String    @db.VarChar(255)
-  emailVerifiedAt  DateTime? @map("email_verified_at")
-  rememberToken    String?   @map("remember_token") @db.VarChar(100)
-  createdAt        DateTime  @default(now()) @map("created_at")
-  updatedAt        DateTime  @updatedAt @map("updated_at")
+  id               Int                         @id @default(autoincrement())
+  name             String                      @db.VarChar(255)
+  email            String                      @unique @db.VarChar(255)
+  role             UserRole                    @default(admin)
+  password         String                      @db.VarChar(255)
+  emailVerifiedAt  DateTime?                   @map("email_verified_at")
+  rememberToken    String?                     @map("remember_token") @db.VarChar(100)
+  createdAt        DateTime                    @default(now()) @map("created_at")
+  updatedAt        DateTime                    @updatedAt @map("updated_at")
+
+  availabilityHistory KebayaAvailabilityHistory[]
 
   @@map("users")
 }
@@ -161,21 +163,23 @@ enum SenderType {
 //  KEBAYA CATALOG
 // ═══════════════════════════════════════════════════════
 model Kebaya {
-  id               Int          @id @default(autoincrement())
-  slug             String       @unique @db.VarChar(255)
-  nama             String       @db.VarChar(255)
-  deskripsi        String?      @db.Text
-  harga            Int          @default(0)
-  foto             String?      @db.VarChar(500)
-  fotoBelakang     String?      @map("foto_belakang") @db.VarChar(500)
-  kainUtama        String?      @map("kain_utama") @db.VarChar(500)
-  furing           String?      @db.VarChar(500)
-  karakteristikKain String?     @map("karakteristik_kain") @db.Text
-  detailPayet      String?      @map("detail_payet") @db.Text
-  rekomendasiAcara String?      @map("rekomendasi_acara") @db.VarChar(500)
-  status           KebayaStatus @default(aktif)
-  createdAt        DateTime     @default(now()) @map("created_at")
-  updatedAt        DateTime     @updatedAt @map("updated_at")
+  id               Int                     @id @default(autoincrement())
+  slug             String                  @unique @db.VarChar(255)
+  nama             String                  @db.VarChar(255)
+  deskripsi        String?                 @db.Text
+  harga            Int                     @default(0)
+  foto             String?                 @db.VarChar(500)
+  fotoBelakang     String?                 @map("foto_belakang") @db.VarChar(500)
+  kainUtama        String?                 @map("kain_utama") @db.VarChar(500)
+  furing           String?                 @db.VarChar(500)
+  karakteristikKain String?                @map("karakteristik_kain") @db.Text
+  detailPayet      String?                 @map("detail_payet") @db.Text
+  rekomendasiAcara String?                 @map("rekomendasi_acara") @db.VarChar(500)
+  status           KebayaStatus            @default(aktif)
+  createdAt        DateTime                @default(now()) @map("created_at")
+  updatedAt        DateTime                @updatedAt @map("updated_at")
+
+  availabilityHistory KebayaAvailabilityHistory[]
 
   @@map("kebaya")
 }
@@ -185,4 +189,24 @@ enum KebayaStatus {
   nonaktif
   perbaikan
   segera
+}
+
+// ═══════════════════════════════════════════════════════
+//  KEBAYA AVAILABILITY HISTORY
+// ═══════════════════════════════════════════════════════
+model KebayaAvailabilityHistory {
+  id            Int          @id @default(autoincrement())
+  kebayaId      Int          @map("kebaya_id")
+  statusLama    KebayaStatus @map("status_lama")
+  statusBaru    KebayaStatus @map("status_baru")
+  catatan       String?      @db.Text
+  createdById   Int?         @map("created_by_id")
+  createdAt     DateTime     @default(now()) @map("created_at")
+
+  kebaya        Kebaya       @relation(fields: [kebayaId], references: [id], onDelete: Cascade)
+  createdBy     User?        @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([kebayaId])
+  @@index([createdById])
+  @@map("kebaya_availability_history")
 }

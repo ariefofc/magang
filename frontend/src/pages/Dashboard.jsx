@@ -10,6 +10,7 @@ const TABS = [
   { key: 'fitting', label: 'Fitting' },
   { key: 'laporan', label: 'Laporan' },
   { key: 'pengembalian', label: 'Pengembalian' },
+  { key: 'riwayat_tersedia', label: 'Riwayat Ketersediaan' },
   { key: 'konfigurasi', label: 'Konfigurasi', superOnly: true },
   { key: 'log_audit', label: 'Log Audit', superOnly: true },
 ];
@@ -103,6 +104,9 @@ export default function Dashboard() {
   });
   const [configMsg, setConfigMsg] = useState('');
 
+  // Availability history state
+  const [availabilityHistory, setAvailabilityHistory] = useState([]);
+
   // ── Fetch dashboard data ──
   const fetchDashboard = useCallback(async (p = page, f = filters) => {
     setLoading(true);
@@ -122,8 +126,16 @@ export default function Dashboard() {
     } catch { setKebaya([]); }
   }, []);
 
+  const fetchAvailabilityHistory = useCallback(async () => {
+    try {
+      const res = await api.get('/admin/availability-history');
+      setAvailabilityHistory(res.data?.histories || []);
+    } catch { setAvailabilityHistory([]); }
+  }, []);
+
   useEffect(() => { fetchDashboard(); }, [page]); // eslint-disable-line
   useEffect(() => { if (activeTab === 'katalog') fetchKebaya(); }, [activeTab]); // eslint-disable-line
+  useEffect(() => { if (activeTab === 'riwayat_tersedia') fetchAvailabilityHistory(); }, [activeTab]); // eslint-disable-line
 
   // ── Actions ──
   const updateStatus = async (id, status) => {
@@ -301,6 +313,10 @@ export default function Dashboard() {
 
           {!loading && activeTab === 'pengembalian' && (
             <TabPengembalian rows={pengembalianList} onStatusChange={updateStatus} />
+          )}
+
+          {!loading && activeTab === 'riwayat_tersedia' && (
+            <TabRiwayatTersedia histories={availabilityHistory} />
           )}
 
           {!loading && activeTab === 'konfigurasi' && isSuperAdmin && (
@@ -804,6 +820,59 @@ function TabKonfigurasi({ config, setConfig, onSave, msg }) {
       <button onClick={onSave} className="px-6 py-2.5 rounded-lg bg-[#2C1A0E] text-white font-medium hover:bg-[#3d2517] transition">
         Simpan Konfigurasi
       </button>
+    </div>
+  );
+}
+
+// ── TAB: Riwayat Ketersediaan ──
+function TabRiwayatTersedia({ histories }) {
+  const statusClass = (status) => {
+    const map = {
+      aktif: 'bg-green-100 text-green-700',
+      nonaktif: 'bg-gray-200 text-gray-600',
+      perbaikan: 'bg-yellow-100 text-yellow-700',
+      segera: 'bg-blue-100 text-blue-700',
+    };
+    return map[status] || 'bg-gray-100 text-gray-600';
+  };
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+      <div className="px-6 py-4 border-b flex items-center justify-between">
+        <h3 className="font-bold text-[#2C1A0E]">Riwayat Ketersediaan Kebaya</h3>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+            <tr>
+              {['Waktu', 'Kebaya', 'Status Lama', 'Status Baru', 'Catatan', 'Diubah Oleh'].map(h => (
+                <th key={h} className="px-4 py-3 text-left font-medium">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {histories.length === 0 && (
+              <tr><td colSpan={6} className="text-center py-10 text-gray-400">Belum ada riwayat perubahan ketersediaan.</td></tr>
+            )}
+            {histories.map(h => (
+              <tr key={h.id} className="hover:bg-gray-50">
+                <td className="px-4 py-3 text-xs whitespace-nowrap">{fmtDate(h.created_at)} {new Date(h.created_at).toLocaleTimeString('id-ID')}</td>
+                <td className="px-4 py-3 font-medium">{h.kebaya_nama}</td>
+                <td className="px-4 py-3"><span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${statusClass(h.status_lama)}`}>{h.status_lama}</span></td>
+                <td className="px-4 py-3"><span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${statusClass(h.status_baru)}`}>{h.status_baru}</span></td>
+                <td className="px-4 py-3 text-xs text-gray-500 max-w-xs truncate">{h.catatan || '-'}</td>
+                <td className="px-4 py-3 text-xs">
+                  {h.created_by ? (
+                    <span>{h.created_by.name} <span className="text-gray-400">({h.created_by.role.replace('_', ' ')})</span></span>
+                  ) : (
+                    <span className="text-gray-400">-</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
