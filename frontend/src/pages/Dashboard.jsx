@@ -7,6 +7,7 @@ import { cfg } from '../config';
 const TABS = [
   { key: 'pemesanan', label: 'Pemesanan' },
   { key: 'katalog', label: 'Katalog' },
+  { key: 'monitoring_ketersediaan', label: 'Monitoring Ketersediaan' },
   { key: 'fitting', label: 'Fitting' },
   { key: 'laporan', label: 'Laporan' },
   { key: 'pengembalian', label: 'Pengembalian' },
@@ -14,6 +15,13 @@ const TABS = [
   { key: 'konfigurasi', label: 'Konfigurasi', superOnly: true },
   { key: 'log_audit', label: 'Log Audit', superOnly: true },
 ];
+
+const INDO_MONTHS = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+];
+
+const WEEK_DAYS = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
 
 const ALL_STATUSES = [
   'Menunggu Pembayaran DP',
@@ -134,7 +142,7 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => { fetchDashboard(); }, [page]); // eslint-disable-line
-  useEffect(() => { if (activeTab === 'katalog') fetchKebaya(); }, [activeTab]); // eslint-disable-line
+  useEffect(() => { if (activeTab === 'katalog' || activeTab === 'monitoring_ketersediaan') fetchKebaya(); }, [activeTab]); // eslint-disable-line
   useEffect(() => { if (activeTab === 'riwayat_tersedia') fetchAvailabilityHistory(); }, [activeTab]); // eslint-disable-line
 
   // ── Actions ──
@@ -299,6 +307,10 @@ export default function Dashboard() {
 
           {!loading && activeTab === 'katalog' && (
             <TabKatalog items={kebaya} onToggle={toggleKebaya} onDelete={deleteKebaya} onSave={saveKebaya} />
+          )}
+
+          {!loading && activeTab === 'monitoring_ketersediaan' && (
+            <TabMonitoringKetersediaan items={kebaya} onRefresh={fetchKebaya} />
           )}
 
           {!loading && activeTab === 'fitting' && (
@@ -907,6 +919,584 @@ function TabRiwayatTersedia({ histories }) {
             ))}
           </tbody>
         </table>
+      </div>
+    </div>
+  );
+}
+
+// ── TAB: Monitoring Ketersediaan & Kalender Penyewaan ──
+function TabMonitoringKetersediaan({ items = [], onRefresh }) {
+  const [selectedSlug, setSelectedSlug] = useState('');
+  const now = new Date();
+  const [targetYear, setTargetYear] = useState(() => now.getFullYear());
+  const [targetMonth, setTargetMonth] = useState(() => now.getMonth() + 1);
+  const [calData, setCalData] = useState(null);
+  const [loadingCal, setLoadingCal] = useState(false);
+  const [selectedDay, setSelectedDay] = useState(null);
+  const [searchKebaya, setSearchKebaya] = useState('');
+
+  const todayStr = now.toISOString().slice(0, 10);
+  const tomorrowStr = new Date(now.getTime() + 86400000).toISOString().slice(0, 10);
+
+  // Auto-select first kebaya
+  useEffect(() => {
+    if (!selectedSlug && items.length > 0) {
+      setSelectedSlug(items[0].slug);
+    }
+  }, [items, selectedSlug]);
+
+  const activeKebaya = items.find(k => k.slug === selectedSlug) || items[0] || null;
+
+  const fetchCalendar = useCallback(async (slug, y, m) => {
+    if (!slug) return;
+    setLoadingCal(true);
+    try {
+      const res = await api.get(`/kebaya/${slug}/calendar`, {
+        params: { year: y, month: m },
+      });
+      setCalData(res.data);
+    } catch {
+      setCalData(null);
+    } finally {
+      setLoadingCal(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selectedSlug) {
+      fetchCalendar(selectedSlug, targetYear, targetMonth);
+      setSelectedDay(null);
+    }
+  }, [selectedSlug, targetYear, targetMonth, fetchCalendar]);
+
+  const handlePrevMonth = () => {
+    if (targetMonth === 1) {
+      setTargetYear(y => y - 1);
+      setTargetMonth(12);
+    } else {
+      setTargetMonth(m => m - 1);
+    }
+  };
+
+  const handleNextMonth = () => {
+    if (targetMonth === 12) {
+      setTargetYear(y => y + 1);
+      setTargetMonth(1);
+    } else {
+      setTargetMonth(m => m + 1);
+    }
+  };
+
+  // Metrics
+  const totalModels = items.length;
+  const totalStockUnits = items.reduce((acc, k) => acc + (k.stok || 1), 0);
+  const fullTodayCount = items.filter(k => k.is_full_hari_ini).length;
+  const fullTomorrowCount = items.filter(k => k.is_full_besok).length;
+  const availTodayCount = items.filter(k => !k.is_full_hari_ini && k.status === 'aktif').length;
+
+  // Calendar matrix
+  const daysInMonth = new Date(targetYear, targetMonth, 0).getDate();
+  const firstDayOfWeek = (new Date(targetYear, targetMonth - 1, 1).getDay() + 6) % 7;
+  const daysMap = calData?.days || {};
+  const bookedRanges = calData?.bookedRanges || [];
+
+  // Filter rentals for selected date
+  const filteredRentals = selectedDay
+    ? bookedRanges.filter(r => r.start <= selectedDay && r.end >= selectedDay)
+    : bookedRanges;
+
+  const filteredItems = items.filter(k =>
+    (k.nama || '').toLowerCase().includes(searchKebaya.toLowerCase())
+  );
+
+  return (
+    <div className="space-y-6">
+      {/* ── Top Header & Stats Bar ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-stone-200">
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-bold text-[#2C1A0E]">Monitoring Ketersediaan Kebaya</h2>
+            <span className="text-xs bg-amber-100 text-amber-800 font-bold px-2.5 py-0.5 rounded-full">
+              Real-time
+            </span>
+          </div>
+          <p className="text-xs text-stone-500 mt-1">
+            Pantau ketersediaan stok aktual per hari ini, besok, dan jadwal penyewaan lengkap pada kalender.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            onRefresh && onRefresh();
+            if (selectedSlug) fetchCalendar(selectedSlug, targetYear, targetMonth);
+          }}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#2C1A0E] text-white text-xs font-semibold hover:bg-[#3d2517] transition self-start sm:self-auto cursor-pointer"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+          Segarkan Data
+        </button>
+      </div>
+
+      {/* ── 5 Metric Cards ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+        <div className="bg-white p-4 rounded-xl border border-stone-200 shadow-xs">
+          <span className="text-[11px] font-semibold text-stone-500 block uppercase">Total Model</span>
+          <span className="text-2xl font-black text-stone-800 mt-1 block">{totalModels}</span>
+          <span className="text-[10px] text-stone-400 mt-0.5 block">Koleksi Terdaftar</span>
+        </div>
+        <div className="bg-white p-4 rounded-xl border border-stone-200 shadow-xs">
+          <span className="text-[11px] font-semibold text-stone-500 block uppercase">Total Fisik Unit</span>
+          <span className="text-2xl font-black text-stone-800 mt-1 block">{totalStockUnits}</span>
+          <span className="text-[10px] text-stone-400 mt-0.5 block">Kapasitas Maksimal</span>
+        </div>
+        <div className="bg-white p-4 rounded-xl border border-emerald-200 shadow-xs bg-emerald-50/30">
+          <span className="text-[11px] font-semibold text-emerald-800 block uppercase">Tersedia Hari Ini</span>
+          <span className="text-2xl font-black text-emerald-600 mt-1 block">{availTodayCount}</span>
+          <span className="text-[10px] text-emerald-700 mt-0.5 block">Model Siap Dipesan</span>
+        </div>
+        <div className="bg-white p-4 rounded-xl border border-red-200 shadow-xs bg-red-50/30">
+          <span className="text-[11px] font-semibold text-red-800 block uppercase">Penuh Hari Ini</span>
+          <span className="text-2xl font-black text-red-600 mt-1 block">{fullTodayCount}</span>
+          <span className="text-[10px] text-red-600 mt-0.5 block">{fullTodayCount > 0 ? 'Stok Habis' : 'Semua Siap'}</span>
+        </div>
+        <div className="bg-white p-4 rounded-xl border border-amber-200 shadow-xs bg-amber-50/30 col-span-2 sm:col-span-1">
+          <span className="text-[11px] font-semibold text-amber-800 block uppercase">Penuh Besok</span>
+          <span className="text-2xl font-black text-amber-600 mt-1 block">{fullTomorrowCount}</span>
+          <span className="text-[10px] text-amber-700 mt-0.5 block">Slot Besok Terisi Penuh</span>
+        </div>
+      </div>
+
+      {/* ── Main Monitoring Workspace: Active Kebaya + Calendar & Details ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Col: Kebaya Selector & Active Info */}
+        <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b pb-3">
+            <h3 className="font-bold text-sm text-[#2C1A0E]">Pilih Kebaya Dimonitor</h3>
+            <span className="text-[11px] text-stone-400">{filteredItems.length} pilihan</span>
+          </div>
+
+          <div>
+            <input
+              type="text"
+              placeholder="Cari nama kebaya..."
+              value={searchKebaya}
+              onChange={e => setSearchKebaya(e.target.value)}
+              className="w-full text-xs px-3 py-2 rounded-lg border border-stone-300 focus:border-[#2C1A0E] focus:outline-none"
+            />
+          </div>
+
+          {/* Kebaya List Selector */}
+          <div className="space-y-2 max-h-[460px] overflow-y-auto pr-1">
+            {filteredItems.map(k => {
+              const isSelected = k.slug === selectedSlug;
+              return (
+                <button
+                  key={k.slug}
+                  type="button"
+                  onClick={() => setSelectedSlug(k.slug)}
+                  className={`w-full text-left p-2.5 rounded-xl border transition flex items-center gap-3 cursor-pointer ${
+                    isSelected
+                      ? 'bg-[#2C1A0E] text-white border-[#2C1A0E] shadow-sm'
+                      : 'bg-white hover:bg-stone-50 border-stone-200 text-stone-800'
+                  }`}
+                >
+                  <div className="w-12 h-14 rounded-lg bg-stone-100 overflow-hidden shrink-0 border border-black/10">
+                    {k.foto ? (
+                      <img src={`/images/${k.foto}`} alt={k.nama} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-[10px] text-stone-400">Foto</div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className={`text-xs font-bold truncate ${isSelected ? 'text-white' : 'text-[#2C1A0E]'}`}>
+                      {k.nama}
+                    </h4>
+                    <p className={`text-[11px] mt-0.5 ${isSelected ? 'text-stone-300' : 'text-stone-500'}`}>
+                      Total: {k.stok ?? 1} unit • Rp {(k.harga || 0).toLocaleString('id-ID')}/hari
+                    </p>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                        k.is_full_hari_ini
+                          ? 'bg-red-500/90 text-white'
+                          : isSelected ? 'bg-emerald-400 text-stone-900' : 'bg-emerald-100 text-emerald-800'
+                      }`}>
+                        Hari Ini: {k.is_full_hari_ini ? 'Penuh' : `Sisa ${k.stok_hari_ini ?? k.stok_tersedia}`}
+                      </span>
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                        k.is_full_besok
+                          ? 'bg-red-500/90 text-white'
+                          : isSelected ? 'bg-emerald-300 text-stone-900' : 'bg-stone-100 text-stone-600'
+                      }`}>
+                        Besok: {k.is_full_besok ? 'Penuh' : `Sisa ${k.stok_besok ?? k.stok_tersedia}`}
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {activeKebaya && (
+            <div className="pt-3 border-t border-stone-100 text-xs space-y-2">
+              <div className="flex justify-between text-stone-600">
+                <span>Status Katalog:</span>
+                <span className={`font-semibold capitalize px-2 py-0.5 rounded text-[11px] ${KEBAYA_STATUS_COLORS[activeKebaya.status] || 'bg-stone-100 text-stone-700'}`}>
+                  {activeKebaya.status}
+                </span>
+              </div>
+              <div className="flex justify-between text-stone-600">
+                <span>Material Utama:</span>
+                <span className="font-semibold text-stone-800 truncate max-w-[160px]">{activeKebaya.kain_utama || '-'}</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Right 2 Cols: Monthly Calendar Matrix & Active Rentals Table */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Calendar Card */}
+          <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-4">
+            {/* Header: Kebaya Title + Month Controls */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4">
+              <div>
+                <h3 className="font-bold text-sm text-[#2C1A0E] flex items-center gap-2">
+                  <span>Kalender Sewa: {activeKebaya?.nama || 'Pilih Kebaya'}</span>
+                  <span className="text-[11px] bg-stone-100 text-stone-700 font-bold px-2 py-0.5 rounded border">
+                    Stok: {activeKebaya?.stok || calData?.totalStock || 1} Unit
+                  </span>
+                </h3>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  Klik tanggal untuk melihat daftar pelanggan/transaksi yang menyewa pada tanggal tersebut.
+                </p>
+              </div>
+
+              {/* Month Navigation */}
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                <button
+                  type="button"
+                  onClick={handlePrevMonth}
+                  className="w-8 h-8 rounded-lg border border-stone-300 hover:bg-stone-50 flex items-center justify-center text-stone-600 transition cursor-pointer"
+                  title="Bulan Sebelumnya"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <span className="text-xs font-bold text-stone-800 min-w-[130px] text-center">
+                  {INDO_MONTHS[targetMonth - 1]} {targetYear}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleNextMonth}
+                  className="w-8 h-8 rounded-lg border border-stone-300 hover:bg-stone-50 flex items-center justify-center text-stone-600 transition cursor-pointer"
+                  title="Bulan Berikutnya"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Matrix Grid */}
+            <div className="relative">
+              {loadingCal && (
+                <div className="absolute inset-0 bg-white/70 backdrop-blur-2xs flex items-center justify-center z-10 rounded-xl">
+                  <div className="w-6 h-6 border-2 border-stone-800 border-t-transparent rounded-full animate-spin" />
+                </div>
+              )}
+
+              {/* Day of Week Header */}
+              <div className="grid grid-cols-7 gap-1.5 text-center mb-1.5">
+                {WEEK_DAYS.map((d, i) => (
+                  <div key={d} className={`text-[11px] font-bold py-1 ${i === 6 ? 'text-red-500' : 'text-stone-500'}`}>
+                    {d}
+                  </div>
+                ))}
+              </div>
+
+              {/* Day Cells Grid */}
+              <div className="grid grid-cols-7 gap-1.5">
+                {Array.from({ length: firstDayOfWeek }).map((_, i) => (
+                  <div key={`empty-${i}`} className="h-16 rounded-lg bg-stone-50/50 border border-transparent" />
+                ))}
+
+                {Array.from({ length: daysInMonth }).map((_, i) => {
+                  const dayNum = i + 1;
+                  const dayStr = `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+                  const dayObj = daysMap[dayStr] || {
+                    day: dayNum,
+                    date: dayStr,
+                    isFull: false,
+                    availableSlots: activeKebaya?.stok || 1,
+                    status: 'available',
+                  };
+
+                  const isToday = dayStr === todayStr;
+                  const isTomorrow = dayStr === tomorrowStr;
+                  const isSelected = dayStr === selectedDay;
+                  const isFull = dayObj.isFull;
+                  const isLimited = dayObj.status === 'limited';
+
+                  let cellStyle = 'bg-white border-stone-200 text-stone-800 hover:border-stone-400';
+                  let badge = (
+                    <span className="text-[9px] font-semibold text-emerald-700 block truncate">
+                      {dayObj.availableSlots} slot
+                    </span>
+                  );
+
+                  if (isFull) {
+                    cellStyle = 'bg-red-50/90 border-red-200 text-red-600 cursor-pointer hover:border-red-400';
+                    badge = <span className="text-[9px] font-bold text-red-600 block">Penuh (0 slot)</span>;
+                  } else if (isLimited) {
+                    cellStyle = 'bg-amber-50/90 border-amber-300 text-amber-900 hover:border-amber-500 cursor-pointer';
+                    badge = <span className="text-[9px] font-bold text-amber-700 block">Sisa 1</span>;
+                  }
+
+                  if (isSelected) {
+                    cellStyle = 'bg-[#2C1A0E] text-white border-[#2C1A0E] shadow-sm ring-2 ring-[#2C1A0E]/30';
+                    badge = <span className="text-[9px] font-bold text-amber-300 block">Terpilih</span>;
+                  }
+
+                  return (
+                    <button
+                      key={dayStr}
+                      type="button"
+                      onClick={() => setSelectedDay(selectedDay === dayStr ? null : dayStr)}
+                      className={`h-16 p-1.5 rounded-lg border text-left flex flex-col justify-between transition-all ${cellStyle}`}
+                      title={isFull ? `Tanggal ${dayStr}: Stok Penuh (${dayObj.bookedCount} unit disewa)` : `Tanggal ${dayStr}: Tersedia ${dayObj.availableSlots} slot unit`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1">
+                          <span className={`text-xs font-bold ${isSelected ? 'text-white' : ''}`}>
+                            {dayNum}
+                          </span>
+                          {isToday && (
+                            <span className={`text-[8px] font-extrabold px-1 rounded ${isSelected ? 'bg-amber-400 text-stone-900' : 'bg-stone-200 text-stone-700'}`}>
+                              Hari Ini
+                            </span>
+                          )}
+                          {isTomorrow && (
+                            <span className={`text-[8px] font-semibold px-1 rounded ${isSelected ? 'bg-amber-300 text-stone-900' : 'bg-stone-100 text-stone-600'}`}>
+                              Besok
+                            </span>
+                          )}
+                        </div>
+                        {isFull && <span className="w-1.5 h-1.5 rounded-full bg-red-500" />}
+                        {!isFull && isLimited && <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />}
+                        {!isFull && !isLimited && !isSelected && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        )}
+                      </div>
+                      {badge}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Legend & Filter reset */}
+            <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-stone-600 pt-2 border-t border-stone-100">
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm bg-white border border-stone-300 inline-block" />
+                  <span>Tersedia</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm bg-amber-100 border border-amber-300 inline-block" />
+                  <span>Menipis (Sisa 1)</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm bg-red-100 border border-red-300 inline-block" />
+                  <span className="font-semibold text-red-600">Full Booked (Penuh)</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm bg-[#2C1A0E] inline-block" />
+                  <span className="font-semibold text-[#2C1A0E]">Tanggal Terpilih</span>
+                </div>
+              </div>
+
+              {selectedDay && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedDay(null)}
+                  className="text-amber-800 hover:text-amber-950 font-bold underline cursor-pointer"
+                >
+                  Tampilkan Semua Booking Bulan Ini &times;
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Active Bookings Detail Table for Date/Month */}
+          <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-stone-50/50">
+              <div>
+                <h4 className="font-bold text-sm text-[#2C1A0E]">
+                  {selectedDay ? `Daftar Penyewa pada Tanggal ${selectedDay}` : `Daftar Seluruh Penyewaan Aktif Bulan ${INDO_MONTHS[targetMonth - 1]} ${targetYear}`}
+                </h4>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  {filteredRentals.length} transaksi sewa aktif ditemukan untuk {activeKebaya?.nama || 'kebaya ini'}.
+                </p>
+              </div>
+
+              {selectedDay && (
+                <div className="text-xs bg-white px-3 py-1 rounded-lg border border-stone-200 font-semibold text-stone-700">
+                  Status: {daysMap[selectedDay]?.isFull ? (
+                    <span className="text-red-600 font-bold">Penuh (0 slot sisa)</span>
+                  ) : (
+                    <span className="text-emerald-700 font-bold">Sisa {daysMap[selectedDay]?.availableSlots ?? 1} slot unit</span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="bg-stone-50 text-stone-500 uppercase font-semibold text-[11px] border-b">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Kode</th>
+                    <th className="px-4 py-3 text-left">Pemesan</th>
+                    <th className="px-4 py-3 text-left">WhatsApp</th>
+                    <th className="px-4 py-3 text-left">Ukuran</th>
+                    <th className="px-4 py-3 text-left">Jadwal Sewa</th>
+                    <th className="px-4 py-3 text-left">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-100">
+                  {filteredRentals.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="text-center py-8 text-stone-400">
+                        {selectedDay
+                          ? `Tidak ada penyewa pada tanggal ${selectedDay}. Semua stok unit tersedia.`
+                          : `Belum ada penyewaan aktif pada bulan ${INDO_MONTHS[targetMonth - 1]} ${targetYear}.`}
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredRentals.map(r => (
+                      <tr key={r.kode} className="hover:bg-stone-50/80 transition">
+                        <td className="px-4 py-3 font-mono font-bold text-[#2C1A0E]">{r.kode}</td>
+                        <td className="px-4 py-3 font-semibold text-stone-800">{r.user || 'Pelanggan'}</td>
+                        <td className="px-4 py-3">
+                          {r.noWa ? (
+                            <a
+                              href={`https://wa.me/${r.noWa.replace(/[^0-9]/g, '')}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-emerald-700 hover:underline font-medium inline-flex items-center gap-1"
+                            >
+                              <span>{r.noWa}</span>
+                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.771-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86.174.086.275.072.376-.043.101-.116.433-.506.549-.68.116-.173.231-.145.39-.086s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.099.824z" /></svg>
+                            </a>
+                          ) : (
+                            <span className="text-stone-400">-</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 font-semibold text-stone-700">{r.ukuran || 'M'}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-stone-600">
+                          <strong>{r.start}</strong> s/d <strong>{r.end}</strong>
+                        </td>
+                        <td className="px-4 py-3">
+                          <StatusBadge status={r.status} />
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── All Kebayas Real-time Stock Matrix Table ── */}
+      <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b flex items-center justify-between">
+          <div>
+            <h3 className="font-bold text-sm text-[#2C1A0E]">Tabel Monitoring Ketersediaan Seluruh Busana</h3>
+            <p className="text-xs text-stone-500 mt-0.5">Ringkasan cepat status fisik, ketersediaan hari ini, dan besok.</p>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-stone-50 text-stone-500 uppercase font-semibold text-[11px] border-b">
+              <tr>
+                <th className="px-4 py-3 text-left">Busana Kebaya</th>
+                <th className="px-4 py-3 text-center">Total Unit</th>
+                <th className="px-4 py-3 text-center">Ketersediaan Hari Ini ({todayStr})</th>
+                <th className="px-4 py-3 text-center">Ketersediaan Besok ({tomorrowStr})</th>
+                <th className="px-4 py-3 text-center">Status Katalog</th>
+                <th className="px-4 py-3 text-right">Aksi</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-stone-100">
+              {items.map(k => {
+                const isSelected = k.slug === selectedSlug;
+                return (
+                  <tr key={k.slug} className={`hover:bg-stone-50/80 transition ${isSelected ? 'bg-amber-50/40' : ''}`}>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-12 rounded-lg bg-stone-100 overflow-hidden shrink-0 border border-black/10">
+                          {k.foto ? (
+                            <img src={`/images/${k.foto}`} alt={k.nama} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-[10px] text-stone-400">Foto</div>
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-bold text-stone-800 text-xs">{k.nama}</p>
+                          <p className="text-[11px] text-stone-400 mt-0.5">Rp {(k.harga || 0).toLocaleString('id-ID')}/hari</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-center font-bold text-stone-800 text-sm">
+                      {k.stok ?? 1}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {k.is_full_hari_ini ? (
+                        <span className="inline-block px-2.5 py-1 rounded-full text-[10px] font-bold bg-red-100 text-red-700 border border-red-200">
+                          Full Booked (0 Sisa)
+                        </span>
+                      ) : (
+                        <span className="inline-block px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                          Tersedia • Sisa {k.stok_hari_ini ?? k.stok_tersedia ?? 1} Unit
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {k.is_full_besok ? (
+                        <span className="inline-block px-2.5 py-1 rounded-full text-[10px] font-bold bg-red-100 text-red-700 border border-red-200">
+                          Full Booked (0 Sisa)
+                        </span>
+                      ) : (
+                        <span className="inline-block px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                          Tersedia • Sisa {k.stok_besok ?? k.stok_tersedia ?? 1} Unit
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`inline-block text-[11px] px-2.5 py-0.5 rounded-full font-semibold capitalize ${KEBAYA_STATUS_COLORS[k.status] || 'bg-stone-100 text-stone-600'}`}>
+                        {k.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedSlug(k.slug);
+                          window.scrollTo({ top: 180, behavior: 'smooth' });
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                          isSelected
+                            ? 'bg-amber-600 text-white'
+                            : 'bg-stone-100 hover:bg-stone-200 text-stone-700'
+                        }`}
+                      >
+                        {isSelected ? 'Sedang Dimonitor' : 'Buka Kalender'}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

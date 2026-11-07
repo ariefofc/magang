@@ -200,6 +200,9 @@ class KebayaService {
         tanggalSewa: true,
         tanggalPengembalian: true,
         status: true,
+        namaUser: true,
+        noWa: true,
+        ukuran: true,
       },
     });
 
@@ -256,6 +259,9 @@ class KebayaService {
         start: r.tanggalSewa ? r.tanggalSewa.toISOString().slice(0, 10) : null,
         end: r.tanggalPengembalian ? r.tanggalPengembalian.toISOString().slice(0, 10) : null,
         status: r.status,
+        user: r.namaUser || 'Pelanggan',
+        noWa: r.noWa || '',
+        ukuran: r.ukuran || 'M',
       })),
     };
   }
