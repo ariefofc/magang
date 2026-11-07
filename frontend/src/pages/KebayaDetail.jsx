@@ -760,12 +760,18 @@ function AvailabilityCalendar({ slug, totalStock, tglSewa, tglKembali, onRangeSe
   const tomorrowStr = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
 
   const [targetYear, setTargetYear] = useState(() => {
-    if (tglSewa) return new Date(tglSewa).getFullYear();
-    return 2026;
+    if (tglSewa) {
+      const d = new Date(tglSewa);
+      if (!isNaN(d.getTime())) return d.getFullYear();
+    }
+    return new Date().getFullYear();
   });
   const [targetMonth, setTargetMonth] = useState(() => {
-    if (tglSewa) return new Date(tglSewa).getMonth() + 1;
-    return 8; // Default August 2026 where transactions are active
+    if (tglSewa) {
+      const d = new Date(tglSewa);
+      if (!isNaN(d.getTime())) return d.getMonth() + 1;
+    }
+    return new Date().getMonth() + 1;
   });
   const [calData, setCalData] = useState(null);
   const [loadingCal, setLoadingCal] = useState(false);

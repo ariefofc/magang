@@ -6,6 +6,8 @@ const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
 const PDFDocument = require('pdfkit');
+const KebayaService = require('../services/KebayaService');
+const kebayaSvc = new KebayaService();
 
 // ═══════════════════════════════════════════════════════
 //  HELPER: Build filtered query
@@ -235,30 +237,16 @@ router.post('/', async (req, res) => {
       return res.status(422).json({ message: 'Field wajib belum lengkap.' });
     }
 
-    // Stock and availability check
+    // Stock and availability check via dynamic database calendar
     const kebayaObj = await prisma.kebaya.findFirst({ where: { nama: kebayaName } });
-    const maxStock = kebayaObj?.stok || 1;
+    if (!kebayaObj) return res.status(404).json({ message: 'Kebaya tidak ditemukan.' });
+    const maxStock = kebayaObj.stok || 1;
 
-    const overlapCount = await prisma.transaksiSewa.count({
-      where: {
-        namaKebaya: kebayaName,
-        status: { notIn: ['Dibatalkan', 'Telah Dikembalikan'] },
-        OR: [
-          { tanggalSewa: { gte: new Date(tanggal_sewa), lte: new Date(tanggal_pengembalian) } },
-          { tanggalPengembalian: { gte: new Date(tanggal_sewa), lte: new Date(tanggal_pengembalian) } },
-          {
-            AND: [
-              { tanggalSewa: { lte: new Date(tanggal_sewa) } },
-              { tanggalPengembalian: { gte: new Date(tanggal_pengembalian) } },
-            ],
-          },
-        ],
-      },
-    });
-
-    if (overlapCount >= maxStock) {
+    const rangeAvail = await kebayaSvc.checkRangeAvailability(kebayaObj.slug, tanggal_sewa, tanggal_pengembalian);
+    if (!rangeAvail || rangeAvail.isFull || rangeAvail.minAvailableSlots <= 0) {
+      const datesMsg = rangeAvail?.fullDates?.length > 0 ? ` (Penuh pada: ${rangeAvail.fullDates.join(', ')})` : '';
       return res.status(422).json({
-        message: `Stok kebaya "${kebayaName}" (${maxStock} unit) sudah penuh pada rentang tanggal tersebut.`,
+        message: `Stok kebaya "${kebayaName}" (${maxStock} unit) sudah penuh pada rentang tanggal tersebut${datesMsg}. Silakan pilih tanggal lain.`,
       });
     }
 

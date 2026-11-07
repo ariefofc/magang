@@ -674,7 +674,7 @@ function TabLaporan({ filters, setFilters, onApply, data, allTransaksi, onDownlo
             <label className="block text-xs text-gray-500 mb-1">Tahun</label>
             <select className="w-full border rounded-lg px-3 py-2 text-sm" value={filters.year} onChange={e => set('year', e.target.value)}>
               <option value="">Semua</option>
-              {[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
+              {[new Date().getFullYear() - 2, new Date().getFullYear() - 1, new Date().getFullYear(), new Date().getFullYear() + 1].map(y => <option key={y} value={y}>{y}</option>)}
             </select>
           </div>
           <div>
@@ -1548,7 +1548,7 @@ function OwnerDashboard({ user, onLogout }) {
   const [transaksiList, setTransaksiList] = useState([]);
   const [adminPerf, setAdminPerf] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({ year: '2026', month: '', status: '' });
+  const [filters, setFilters] = useState({ year: String(new Date().getFullYear()), month: '', status: '' });
   const [exportDropdown, setExportDropdown] = useState(false);
 
   const fetchData = useCallback(async () => {
@@ -1752,7 +1752,7 @@ function OwnerDashboard({ user, onLogout }) {
         <h1>BUTIK MAYANGSARI KEBAYA RENTAL</h1>
         <h2>${docTitle.toUpperCase()}</h2>
         <div class="meta">
-          <p><strong>Periode Laporan:</strong> Tahun 2026 (Aktual)</p>
+          <p><strong>Periode Laporan:</strong> Tahun ${filters.year || new Date().getFullYear()} (Aktual)</p>
           <p><strong>Tanggal Pengesahan:</strong> ${dateStr}</p>
           <p><strong>Penerima Laporan:</strong> Owner Eksekutif</p>
         </div>
@@ -2048,7 +2048,7 @@ function OwnerDashboard({ user, onLogout }) {
             <div className="bg-white rounded-2xl p-6 border border-stone-200 shadow-xs space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-bold text-base text-stone-900">Tren Pendapatan Bulanan (Tahun 2026)</h3>
+                  <h3 className="font-bold text-base text-stone-900">Tren Pendapatan Bulanan (Tahun {filters.year || new Date().getFullYear()})</h3>
                   <p className="text-xs text-stone-500">Visualisasi akumulasi omset dan frekuensi penyewaan busana per bulan</p>
                 </div>
                 <div className="text-xs font-bold text-amber-800 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200">
