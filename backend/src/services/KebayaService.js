@@ -140,6 +140,89 @@ class KebayaService {
 
     return next;
   }
+
+  async getAvailabilityCalendar(slug, targetYear, targetMonth) {
+    const kebaya = await prisma.kebaya.findUnique({ where: { slug } });
+    if (!kebaya) return null;
+
+    const now = new Date();
+    const y = parseInt(targetYear) || now.getFullYear();
+    const m = parseInt(targetMonth) || (now.getMonth() + 1);
+
+    const startDate = new Date(Date.UTC(y, m - 1, 1));
+    const endDate = new Date(Date.UTC(y, m, 0, 23, 59, 59));
+
+    const activeRentals = await prisma.transaksiSewa.findMany({
+      where: {
+        namaKebaya: kebaya.nama,
+        status: { notIn: ['Dibatalkan', 'Telah Dikembalikan'] },
+        tanggalSewa: { lte: endDate },
+        tanggalPengembalian: { gte: startDate },
+      },
+      select: {
+        kodeTransaksi: true,
+        tanggalSewa: true,
+        tanggalPengembalian: true,
+        status: true,
+      },
+    });
+
+    const totalStock = kebaya.stok ?? 1;
+    const isKebayaActive = kebaya.status === 'aktif';
+    const daysInMonth = new Date(y, m, 0).getDate();
+    const calendarDays = {};
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dayStr = `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      let bookedOnDay = 0;
+
+      activeRentals.forEach((r) => {
+        const sewaStr = r.tanggalSewa ? r.tanggalSewa.toISOString().slice(0, 10) : '';
+        const kembaliStr = r.tanggalPengembalian ? r.tanggalPengembalian.toISOString().slice(0, 10) : '';
+        if (sewaStr <= dayStr && kembaliStr >= dayStr) {
+          bookedOnDay++;
+        }
+      });
+
+      const availableSlots = Math.max(0, totalStock - bookedOnDay);
+      const isFull = !isKebayaActive || bookedOnDay >= totalStock;
+
+      let statusLabel = 'available';
+      if (!isKebayaActive) {
+        statusLabel = 'disabled';
+      } else if (isFull) {
+        statusLabel = 'full';
+      } else if (availableSlots === 1 && totalStock > 1) {
+        statusLabel = 'limited';
+      }
+
+      calendarDays[dayStr] = {
+        date: dayStr,
+        day,
+        totalStock,
+        bookedCount: bookedOnDay,
+        availableSlots,
+        isFull,
+        status: statusLabel,
+      };
+    }
+
+    return {
+      slug: kebaya.slug,
+      nama: kebaya.nama,
+      totalStock,
+      kebayaStatus: kebaya.status,
+      year: y,
+      month: m,
+      days: calendarDays,
+      bookedRanges: activeRentals.map((r) => ({
+        kode: r.kodeTransaksi,
+        start: r.tanggalSewa ? r.tanggalSewa.toISOString().slice(0, 10) : null,
+        end: r.tanggalPengembalian ? r.tanggalPengembalian.toISOString().slice(0, 10) : null,
+        status: r.status,
+      })),
+    };
+  }
 }
 
 module.exports = KebayaService;

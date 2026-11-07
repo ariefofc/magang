@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import api from '../services/api'
 import { cfg, brandParts } from '../config'
@@ -13,6 +13,12 @@ const SCHEMES = [
   { label: 'Lunas 100%', value: 'lunas', desc: 'Pembayaran penuh instan' },
 ]
 
+const INDO_MONTHS = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+]
+const WEEK_DAYS = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min']
+
 export default function KebayaDetail() {
   const { slug } = useParams()
   const [kebaya, setKebaya] = useState(null)
@@ -25,7 +31,7 @@ export default function KebayaDetail() {
   const [recolorResult, setRecolorResult] = useState(null)
   const [recolorLoading, setRecolorLoading] = useState(false)
 
-  // Floating checkout widget state
+  // Interactive booking dates
   const todayStr = new Date().toISOString().slice(0, 10)
   const [tglSewa, setTglSewa] = useState(todayStr)
   const [tglKembali, setTglKembali] = useState(
@@ -76,7 +82,6 @@ export default function KebayaDetail() {
     </div>
   )
 
-  // Build image list ensuring front & back are clearly available
   const frontImg = kebaya.foto_url || 'https://placehold.co/600x800/2C1A0E/fbbf24?text=Tampak+Depan'
   const backImg = kebaya.foto_belakang_url || frontImg
 
@@ -89,8 +94,8 @@ export default function KebayaDetail() {
   const isAvailable = kebaya.tersedia && (kebaya.stok_tersedia ?? 1) > 0
 
   // Calculate duration and prices for Tokopedia-style checkout card
-  const dSewa = new Date(tglSewa)
-  const dKembali = new Date(tglKembali)
+  const dSewa = tglSewa ? new Date(tglSewa) : null
+  const dKembali = tglKembali ? new Date(tglKembali) : null
   const rentalDays = (dSewa && dKembali && dKembali >= dSewa)
     ? Math.max(1, Math.ceil((dKembali - dSewa) / (1000 * 60 * 60 * 24)))
     : 1
@@ -153,6 +158,11 @@ export default function KebayaDetail() {
     } finally {
       setRecolorLoading(false)
     }
+  }
+
+  const handleCalendarRangeSelect = (start, end) => {
+    setTglSewa(start)
+    if (end) setTglKembali(end)
   }
 
   return (
@@ -354,6 +364,15 @@ export default function KebayaDetail() {
               </p>
             </div>
 
+            {/* ════════ DATE RANGE PICKER MATRIX (Requirement: Kalender Ketersediaan Interaktif) ════════ */}
+            <AvailabilityCalendar
+              slug={slug}
+              totalStock={kebaya.stok}
+              tglSewa={tglSewa}
+              tglKembali={tglKembali}
+              onRangeSelect={handleCalendarRangeSelect}
+            />
+
             {/* Spesifikasi Produk (Tokopedia Specs Table) */}
             <div className="bg-white rounded-xl p-6 border border-stone-200 shadow-xs space-y-4">
               <h3 className="text-sm font-bold text-stone-900 border-b border-stone-100 pb-2">
@@ -494,13 +513,12 @@ export default function KebayaDetail() {
                 </div>
               </div>
 
-              {/* Tanggal Sewa & Pengembalian */}
+              {/* Tanggal Sewa & Pengembalian Inputs */}
               <div className="space-y-2.5 text-xs">
                 <div>
                   <label className="block text-stone-600 font-semibold mb-1">Mulai Tanggal Sewa</label>
                   <input
                     type="date"
-                    min={todayStr}
                     value={tglSewa}
                     onChange={e => setTglSewa(e.target.value)}
                     className="w-full rounded-lg border border-stone-300 px-3 py-2 text-xs focus:border-stone-800 focus:outline-none"
@@ -655,7 +673,306 @@ export default function KebayaDetail() {
   )
 }
 
-/* ── Sewa Modal (Tokopedia-style Clean Stepper) ── */
+/* ═════════════════════════════════════════════════════════════════
+   AVAILABILITY CALENDAR (DATE RANGE PICKER MATRIX)
+   Displays Red (Full) and Green (Available) per kebaya
+═════════════════════════════════════════════════════════════════ */
+function AvailabilityCalendar({ slug, totalStock, tglSewa, tglKembali, onRangeSelect }) {
+  const [targetYear, setTargetYear] = useState(() => {
+    if (tglSewa) return new Date(tglSewa).getFullYear();
+    return 2026;
+  });
+  const [targetMonth, setTargetMonth] = useState(() => {
+    if (tglSewa) return new Date(tglSewa).getMonth() + 1;
+    return 8; // Default August 2026 where transactions are active
+  });
+  const [calData, setCalData] = useState(null);
+  const [loadingCal, setLoadingCal] = useState(false);
+  const [warningMsg, setWarningMsg] = useState('');
+  const [pickingStart, setPickingStart] = useState(null);
+
+  const fetchCalendar = useCallback(async (y, m) => {
+    setLoadingCal(true);
+    setWarningMsg('');
+    try {
+      const res = await api.get(`/kebaya/${slug}/calendar`, {
+        params: { year: y, month: m },
+      });
+      setCalData(res.data);
+    } catch {
+      /* silent */
+    } finally {
+      setLoadingCal(false);
+    }
+  }, [slug]);
+
+  useEffect(() => {
+    fetchCalendar(targetYear, targetMonth);
+  }, [fetchCalendar, targetYear, targetMonth]);
+
+  const handlePrevMonth = () => {
+    if (targetMonth === 1) {
+      setTargetYear(y => y - 1);
+      setTargetMonth(12);
+    } else {
+      setTargetMonth(m => m - 1);
+    }
+  };
+
+  const handleNextMonth = () => {
+    if (targetMonth === 12) {
+      setTargetYear(y => y + 1);
+      setTargetMonth(1);
+    } else {
+      setTargetMonth(m => m + 1);
+    }
+  };
+
+  // Generate matrix grid
+  const daysInMonth = new Date(targetYear, targetMonth, 0).getDate();
+  // Monday-based offset (0: Monday, ..., 6: Sunday)
+  const firstDayOfWeek = (new Date(targetYear, targetMonth - 1, 1).getDay() + 6) % 7;
+
+  const handleDayClick = (dayStr, dayObj) => {
+    setWarningMsg('');
+    if (!dayObj || dayObj.isFull) {
+      setWarningMsg(`Tanggal ${dayStr} sudah terisi penuh (stok habis). Silakan pilih tanggal yang masih berwarna hijau.`);
+      return;
+    }
+
+    // If no start date being picked or both dates are already chosen: start picking start date
+    if (!pickingStart || (tglSewa && tglKembali && !pickingStart)) {
+      setPickingStart(dayStr);
+      onRangeSelect(dayStr, '');
+      return;
+    }
+
+    // If picking 2nd date
+    if (dayStr < pickingStart) {
+      // User clicked an earlier date, make it the new start date
+      setPickingStart(dayStr);
+      onRangeSelect(dayStr, '');
+      return;
+    }
+
+    // Check if any date in between is full
+    const daysObj = calData?.days || {};
+    let hasFull = false;
+    const curr = new Date(pickingStart);
+    const end = new Date(dayStr);
+
+    while (curr <= end) {
+      const currStr = curr.toISOString().slice(0, 10);
+      if (daysObj[currStr] && daysObj[currStr].isFull) {
+        hasFull = true;
+        break;
+      }
+      curr.setDate(curr.getDate() + 1);
+    }
+
+    if (hasFull) {
+      setWarningMsg('Rentang tanggal melewati tanggal yang terisi penuh (tanggal merah). Silakan tentukan rentang tanggal lain.');
+      return;
+    }
+
+    // Valid range selected!
+    onRangeSelect(pickingStart, dayStr);
+    setPickingStart(null);
+  };
+
+  const daysMap = calData?.days || {};
+
+  return (
+    <div className="bg-white rounded-2xl p-6 border border-stone-200 shadow-xs space-y-4">
+      {/* Header with Title and Month Controls */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 pb-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-bold text-stone-900">
+              Kalender Ketersediaan & Pilih Jadwal Sewa
+            </h3>
+            <span className="text-[10px] bg-stone-100 text-stone-700 font-bold px-2 py-0.5 rounded-full border border-stone-200">
+              Total Stok: {totalStock || calData?.totalStock || 1} Unit
+            </span>
+          </div>
+          <p className="text-xs text-stone-500 mt-0.5">
+            Klik tanggal langsung untuk memilih jadwal mulai & pengembalian busana.
+          </p>
+        </div>
+
+        {/* Month Navigation */}
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={handlePrevMonth}
+            className="w-8 h-8 rounded-lg border border-stone-300 hover:bg-stone-50 flex items-center justify-center text-stone-600 transition"
+            title="Bulan Sebelumnya"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+          </button>
+          <span className="text-xs font-bold text-stone-800 min-w-[120px] text-center">
+            {INDO_MONTHS[targetMonth - 1]} {targetYear}
+          </span>
+          <button
+            type="button"
+            onClick={handleNextMonth}
+            className="w-8 h-8 rounded-lg border border-stone-300 hover:bg-stone-50 flex items-center justify-center text-stone-600 transition"
+            title="Bulan Berikutnya"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+          </button>
+        </div>
+      </div>
+
+      {warningMsg && (
+        <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center justify-between">
+          <span>{warningMsg}</span>
+          <button type="button" onClick={() => setWarningMsg('')} className="font-bold text-sm px-1 leading-none">&times;</button>
+        </div>
+      )}
+
+      {/* Calendar Matrix */}
+      <div className="relative">
+        {loadingCal && (
+          <div className="absolute inset-0 bg-white/70 backdrop-blur-2xs flex items-center justify-center z-10 rounded-xl">
+            <div className="w-6 h-6 border-2 border-stone-800 border-t-transparent rounded-full animate-spin" />
+          </div>
+        )}
+
+        {/* Day of Week Header */}
+        <div className="grid grid-cols-7 gap-1.5 text-center mb-1.5">
+          {WEEK_DAYS.map((d, i) => (
+            <div key={d} className={`text-[11px] font-bold py-1 ${i === 6 ? 'text-red-500' : 'text-stone-500'}`}>
+              {d}
+            </div>
+          ))}
+        </div>
+
+        {/* Day Cells Grid */}
+        <div className="grid grid-cols-7 gap-1.5">
+          {/* Empty cells before month start */}
+          {Array.from({ length: firstDayOfWeek }).map((_, i) => (
+            <div key={`empty-${i}`} className="h-16 rounded-lg bg-stone-50/40 border border-transparent" />
+          ))}
+
+          {/* Month days */}
+          {Array.from({ length: daysInMonth }).map((_, i) => {
+            const dayNum = i + 1;
+            const dayStr = `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+            const dayObj = daysMap[dayStr] || {
+              day: dayNum,
+              date: dayStr,
+              isFull: false,
+              availableSlots: totalStock || 1,
+              status: 'available',
+            };
+
+            const isStart = dayStr === tglSewa || dayStr === pickingStart;
+            const isEnd = dayStr === tglKembali;
+            const isInRange = tglSewa && tglKembali && dayStr > tglSewa && dayStr < tglKembali;
+            const isFull = dayObj.isFull;
+            const isLimited = dayObj.status === 'limited';
+
+            let cellStyle = 'bg-white border-stone-200 text-stone-800 hover:border-stone-400';
+            let badge = (
+              <span className="text-[9px] font-semibold text-emerald-700 block truncate">
+                {dayObj.availableSlots} slot
+              </span>
+            );
+
+            if (isFull) {
+              cellStyle = 'bg-red-50/90 border-red-200 text-red-600 cursor-not-allowed';
+              badge = <span className="text-[9px] font-bold text-red-600 block">Penuh</span>;
+            } else if (isLimited) {
+              cellStyle = 'bg-amber-50/90 border-amber-300 text-amber-900 hover:border-amber-500';
+              badge = <span className="text-[9px] font-bold text-amber-700 block">Sisa 1</span>;
+            }
+
+            if (isStart || isEnd) {
+              cellStyle = 'bg-[#2C1A0E] text-white border-[#2C1A0E] shadow-xs';
+              badge = <span className="text-[9px] font-bold text-amber-300 block">{isStart ? 'Mulai' : 'Kembali'}</span>;
+            } else if (isInRange) {
+              cellStyle = 'bg-amber-100/90 text-stone-900 border-amber-200 font-semibold';
+              badge = <span className="text-[9px] font-medium text-amber-900 block">Terpilih</span>;
+            }
+
+            return (
+              <button
+                key={dayStr}
+                type="button"
+                onClick={() => handleDayClick(dayStr, dayObj)}
+                className={`h-16 p-1.5 rounded-lg border text-left flex flex-col justify-between transition-all ${cellStyle}`}
+                title={isFull ? 'Slot sewa pada tanggal ini sudah penuh' : `Tersedia ${dayObj.availableSlots} slot unit`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className={`text-xs font-bold ${isStart || isEnd ? 'text-white' : ''}`}>
+                    {dayNum}
+                  </span>
+                  {isFull && <span className="w-1.5 h-1.5 rounded-full bg-red-500" />}
+                  {!isFull && isLimited && <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />}
+                  {!isFull && !isLimited && !isStart && !isEnd && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  )}
+                </div>
+                {badge}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Selected Range Notification Bar */}
+      <div className="p-3.5 bg-stone-50 border border-stone-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+        <div>
+          <span className="text-stone-500 block text-[11px]">Jadwal Sewa Dipilih:</span>
+          {tglSewa && tglKembali ? (
+            <span className="font-bold text-stone-900 text-sm">
+              {tglSewa} s/d {tglKembali} ({Math.max(1, Math.ceil((new Date(tglKembali) - new Date(tglSewa)) / (1000 * 60 * 60 * 24)))} hari)
+            </span>
+          ) : tglSewa ? (
+            <span className="font-bold text-amber-800">
+              Mulai: {tglSewa} — Silakan klik tanggal selesai/pengembalian
+            </span>
+          ) : (
+            <span className="text-stone-400">Silakan klik tanggal pada kalender di atas untuk memilih</span>
+          )}
+        </div>
+
+        {tglSewa && (
+          <button
+            type="button"
+            onClick={() => { onRangeSelect('', ''); setPickingStart(null); }}
+            className="text-stone-500 hover:text-stone-800 font-semibold underline text-xs self-start sm:self-auto"
+          >
+            Reset Pilihan
+          </button>
+        )}
+      </div>
+
+      {/* Legend */}
+      <div className="flex flex-wrap items-center gap-4 text-xs text-stone-600 pt-1 border-t border-stone-100">
+        <div className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-sm bg-white border border-stone-300 inline-block" />
+          <span>Tersedia / Kosong</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-sm bg-amber-100 border border-amber-300 inline-block" />
+          <span>Stok Menipis (Sisa 1)</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-sm bg-red-100 border border-red-300 inline-block" />
+          <span className="font-semibold text-red-600">Terisi Penuh (Tanggal Merah)</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-sm bg-[#2C1A0E] inline-block" />
+          <span className="font-semibold text-[#2C1A0E]">Jadwal Pilihan Anda</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Sewa Modal (Tokopedia-style Clean Stepper with Interactive Calendar) ── */
 function SewaModal({ kebaya, selectedSize, initialTglSewa, initialTglKembali, initialSkema, customColor, customImage, onClose }) {
   const navigate = useNavigate()
   const [step, setStep] = useState(1)
@@ -679,7 +996,6 @@ function SewaModal({ kebaya, selectedSize, initialTglSewa, initialTglKembali, in
     ? Math.max(1, Math.ceil((tKembali - tSewa) / (1000 * 60 * 60 * 24)))
     : 1
   const totalHarga = (kebaya.harga_sewa_per_hari || 0) * durasi
-  const today = new Date().toISOString().slice(0, 10)
 
   const submit = async () => {
     setLoading(true)
@@ -706,7 +1022,7 @@ function SewaModal({ kebaya, selectedSize, initialTglSewa, initialTglKembali, in
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         {/* Modal Header */}
         <div className="px-6 py-4 border-b border-stone-200 flex items-center justify-between">
           <div>
@@ -771,16 +1087,17 @@ function SewaModal({ kebaya, selectedSize, initialTglSewa, initialTglKembali, in
 
           {step === 2 && (
             <>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={labelCls}>Tanggal Mulai Sewa</label>
-                  <input type="date" min={today} className={inputCls} value={form.tanggal_sewa} onChange={set('tanggal_sewa')} />
-                </div>
-                <div>
-                  <label className={labelCls}>Tanggal Pengembalian</label>
-                  <input type="date" min={form.tanggal_sewa || today} className={inputCls} value={form.tanggal_pengembalian} onChange={set('tanggal_pengembalian')} />
-                </div>
-              </div>
+              {/* Interactive Calendar inside Modal */}
+              <AvailabilityCalendar
+                slug={kebaya.slug}
+                totalStock={kebaya.stok}
+                tglSewa={form.tanggal_sewa}
+                tglKembali={form.tanggal_pengembalian}
+                onRangeSelect={(start, end) => {
+                  setForm(f => ({ ...f, tanggal_sewa: start, tanggal_pengembalian: end }));
+                }}
+              />
+
               <div>
                 <label className={labelCls}>Metode Pembayaran</label>
                 <select className={inputCls} value={form.metode_pembayaran} onChange={set('metode_pembayaran')}>

@@ -81,6 +81,18 @@ router.get('/all', auth, checkRole('admin', 'super_admin'), async (req, res) => 
   }
 });
 
+// GET /api/kebaya/:slug/calendar — Availability calendar matrix
+router.get('/:slug/calendar', async (req, res) => {
+  try {
+    const { year, month } = req.query;
+    const cal = await svc.getAvailabilityCalendar(req.params.slug, year, month);
+    if (!cal) return res.status(404).json({ message: 'Kebaya tidak ditemukan.' });
+    res.json(cal);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // GET /api/kebaya/:slug — Public detail
 router.get('/:slug', async (req, res) => {
   try {
