@@ -481,25 +481,31 @@ function TabKatalog({ items, onToggle, onDelete, onSave }) {
               <p className="text-amber-600 font-bold text-sm">Rp {(k.harga || 0).toLocaleString('id-ID')}</p>
               
               {/* Dynamic Stock Info */}
-              <div className="bg-stone-50 rounded-lg p-2 text-xs grid grid-cols-3 gap-1 text-center border border-stone-200">
-                <div>
-                  <span className="text-stone-400 block text-[10px] uppercase font-semibold">Stok</span>
-                  <span className="font-bold text-stone-800">{k.stok ?? 1}</span>
-                </div>
-                <div>
-                  <span className="text-stone-400 block text-[10px] uppercase font-semibold">Disewa</span>
-                  <span className="font-bold text-amber-600">{k.stok_disewa ?? 0}</span>
-                </div>
-                <div>
-                  <span className="text-stone-400 block text-[10px] uppercase font-semibold">Sisa</span>
-                  <span className={`font-bold ${(k.stok_tersedia ?? 1) > 0 ? 'text-emerald-600' : 'text-red-600'}`}>{k.stok_tersedia ?? 1}</span>
+              <div className="bg-stone-50 rounded-lg p-2 text-xs space-y-1.5 border border-stone-200">
+                <div className="grid grid-cols-3 gap-1 text-center">
+                  <div>
+                    <span className="text-stone-400 block text-[10px] uppercase font-semibold">Total Unit</span>
+                    <span className="font-bold text-stone-800">{k.stok ?? 1}</span>
+                  </div>
+                  <div>
+                    <span className="text-stone-400 block text-[10px] uppercase font-semibold">Hari Ini</span>
+                    <span className={`font-bold ${(k.stok_hari_ini ?? k.stok_tersedia ?? 1) > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {k.is_full_hari_ini ? 'Penuh' : `${k.stok_hari_ini ?? k.stok_tersedia} Unit`}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-stone-400 block text-[10px] uppercase font-semibold">Besok</span>
+                    <span className={`font-bold ${(k.stok_besok ?? k.stok_tersedia ?? 1) > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {k.is_full_besok ? 'Penuh' : `${k.stok_besok ?? k.stok_tersedia} Unit`}
+                    </span>
+                  </div>
                 </div>
               </div>
 
               <div className="flex items-center justify-between gap-2">
-                {(k.stok_tersedia ?? 1) <= 0 ? (
+                {k.is_full_hari_ini ? (
                   <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-red-100 text-red-700 border border-red-200">
-                    Habis Disewa
+                    Hari Ini Full Booked
                   </span>
                 ) : (
                   <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium capitalize ${KEBAYA_STATUS_COLORS[k.status] || 'bg-gray-100 text-gray-600'}`}>

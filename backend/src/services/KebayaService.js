@@ -17,29 +17,59 @@ class KebayaService {
   async enrichWithStock(kebayaList) {
     if (!kebayaList || kebayaList.length === 0) return [];
 
-    const activeRentals = await prisma.transaksiSewa.groupBy({
-      by: ['namaKebaya'],
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
+    const tomorrow = new Date(now.getTime() + 86400000);
+    const tomorrowStr = tomorrow.toISOString().slice(0, 10);
+
+    const todayStart = new Date(todayStr + 'T00:00:00.000Z');
+    const tomorrowEnd = new Date(tomorrowStr + 'T23:59:59.999Z');
+
+    // Rentals active on today or tomorrow
+    const activeRentals = await prisma.transaksiSewa.findMany({
       where: {
         status: { in: ACTIVE_RENTAL_STATUSES },
+        tanggalSewa: { lte: tomorrowEnd },
+        tanggalPengembalian: { gte: todayStart },
       },
-      _count: {
-        id: true,
+      select: {
+        namaKebaya: true,
+        tanggalSewa: true,
+        tanggalPengembalian: true,
       },
     });
 
-    const rentalMap = {};
+    const bookedTodayMap = {};
+    const bookedTomorrowMap = {};
+
     activeRentals.forEach((r) => {
-      rentalMap[r.namaKebaya] = r._count.id;
+      const sewaStr = r.tanggalSewa ? r.tanggalSewa.toISOString().slice(0, 10) : '';
+      const kembaliStr = r.tanggalPengembalian ? r.tanggalPengembalian.toISOString().slice(0, 10) : '';
+
+      if (sewaStr <= todayStr && kembaliStr >= todayStr) {
+        bookedTodayMap[r.namaKebaya] = (bookedTodayMap[r.namaKebaya] || 0) + 1;
+      }
+      if (sewaStr <= tomorrowStr && kembaliStr >= tomorrowStr) {
+        bookedTomorrowMap[r.namaKebaya] = (bookedTomorrowMap[r.namaKebaya] || 0) + 1;
+      }
     });
 
     return kebayaList.map((k) => {
       const totalStok = k.stok ?? 1;
-      const stokDisewa = rentalMap[k.nama] || 0;
-      const stokTersedia = Math.max(0, totalStok - stokDisewa);
+      const bookedToday = bookedTodayMap[k.nama] || 0;
+      const bookedTomorrow = bookedTomorrowMap[k.nama] || 0;
+
+      const stokHariIni = Math.max(0, totalStok - bookedToday);
+      const stokBesok = Math.max(0, totalStok - bookedTomorrow);
+      const isFullHariIni = bookedToday >= totalStok;
+      const isFullBesok = bookedTomorrow >= totalStok;
+
+      const stokTersedia = stokHariIni;
+      const stokDisewa = bookedToday;
 
       let displayStatus = k.status;
       let tersedia = k.status === 'aktif';
-      if (k.status === 'aktif' && stokTersedia <= 0) {
+      if (k.status === 'aktif' && isFullHariIni) {
         displayStatus = 'disewa';
         tersedia = false;
       }
@@ -49,6 +79,12 @@ class KebayaService {
         stok: totalStok,
         stokDisewa,
         stokTersedia,
+        stokHariIni,
+        stokBesok,
+        isFullHariIni,
+        isFullBesok,
+        tersediaHariIni: k.status === 'aktif' && !isFullHariIni,
+        tersediaBesok: k.status === 'aktif' && !isFullBesok,
         tersedia,
         displayStatus,
       };
@@ -221,6 +257,96 @@ class KebayaService {
         end: r.tanggalPengembalian ? r.tanggalPengembalian.toISOString().slice(0, 10) : null,
         status: r.status,
       })),
+    };
+  }
+
+  async checkRangeAvailability(slug, startStr, endStr) {
+    const kebaya = await prisma.kebaya.findUnique({ where: { slug } });
+    if (!kebaya) return null;
+
+    const totalStock = kebaya.stok ?? 1;
+    const isKebayaActive = kebaya.status === 'aktif';
+
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
+    const s = startStr || todayStr;
+    const e = endStr || s;
+    const validStart = s <= e ? s : e;
+    const validEnd = s <= e ? e : s;
+
+    const startDate = new Date(validStart + 'T00:00:00.000Z');
+    const endDate = new Date(validEnd + 'T23:59:59.999Z');
+
+    const activeRentals = await prisma.transaksiSewa.findMany({
+      where: {
+        namaKebaya: kebaya.nama,
+        status: { notIn: ['Dibatalkan', 'Telah Dikembalikan'] },
+        tanggalSewa: { lte: endDate },
+        tanggalPengembalian: { gte: startDate },
+      },
+      select: {
+        kodeTransaksi: true,
+        tanggalSewa: true,
+        tanggalPengembalian: true,
+        status: true,
+      },
+    });
+
+    const fullDates = [];
+    const dailyDetails = {};
+    let minAvailable = totalStock;
+    let maxBooked = 0;
+
+    let curr = new Date(validStart + 'T00:00:00.000Z');
+    const endBound = new Date(validEnd + 'T00:00:00.000Z');
+
+    while (curr <= endBound) {
+      const dStr = curr.toISOString().slice(0, 10);
+      let bookedOnDay = 0;
+
+      activeRentals.forEach((r) => {
+        const sewa = r.tanggalSewa ? r.tanggalSewa.toISOString().slice(0, 10) : '';
+        const kembali = r.tanggalPengembalian ? r.tanggalPengembalian.toISOString().slice(0, 10) : '';
+        if (sewa <= dStr && kembali >= dStr) {
+          bookedOnDay++;
+        }
+      });
+
+      const availableSlots = Math.max(0, totalStock - bookedOnDay);
+      const isFull = !isKebayaActive || bookedOnDay >= totalStock;
+
+      if (isFull) fullDates.push(dStr);
+      if (availableSlots < minAvailable) minAvailable = availableSlots;
+      if (bookedOnDay > maxBooked) maxBooked = bookedOnDay;
+
+      dailyDetails[dStr] = {
+        date: dStr,
+        totalStock,
+        bookedCount: bookedOnDay,
+        availableSlots,
+        isFull,
+      };
+
+      curr.setUTCDate(curr.getUTCDate() + 1);
+    }
+
+    const isFull = !isKebayaActive || minAvailable <= 0;
+    const isAvailable = isKebayaActive && minAvailable > 0;
+
+    return {
+      slug: kebaya.slug,
+      nama: kebaya.nama,
+      totalStock,
+      kebayaStatus: kebaya.status,
+      startDate: validStart,
+      endDate: validEnd,
+      minAvailableSlots: minAvailable,
+      maxBooked,
+      isFull,
+      isAvailable,
+      fullDates,
+      status: !isKebayaActive ? 'disabled' : isFull ? 'full_booked' : (minAvailable === 1 && totalStock > 1 ? 'limited' : 'available'),
+      dailyDetails,
     };
   }
 }

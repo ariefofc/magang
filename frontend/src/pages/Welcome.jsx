@@ -247,12 +247,12 @@ function KebayaCard({ k }) {
           {isAvailable ? (
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-600 text-white shadow-md">
               <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-              Tersedia • Sisa {k.stok_tersedia}
+              Tersedia • Sisa {k.stok_hari_ini ?? k.stok_tersedia}
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-stone-900/90 text-white shadow-md">
-              <span className="w-2 h-2 rounded-full bg-red-400" />
-              Habis / Disewa
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-600 text-white shadow-md">
+              <span className="w-2 h-2 rounded-full bg-white" />
+              Full Booked
             </span>
           )}
 
@@ -286,12 +286,21 @@ function KebayaCard({ k }) {
 
       <div className="p-5 flex-1 flex flex-col justify-between">
         <div>
-          <div className="flex items-center justify-between text-xs mb-2">
-            <span className={`inline-flex items-center gap-1 font-semibold ${isAvailable ? 'text-emerald-700' : 'text-stone-500'}`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${isAvailable ? 'bg-emerald-500' : 'bg-stone-400'}`} />
-              {isAvailable ? `Tersedia (${k.stok_tersedia} siap sewa)` : 'Sedang disewa'}
+          <div className="flex items-center justify-between text-xs mb-1">
+            <span className={`inline-flex items-center gap-1 font-semibold ${isAvailable ? 'text-emerald-700' : 'text-red-600'}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${isAvailable ? 'bg-emerald-500' : 'bg-red-500'}`} />
+              Hari Ini: {isAvailable ? `Sisa ${k.stok_hari_ini ?? k.stok_tersedia} unit` : 'Penuh'}
             </span>
             <span className="text-stone-400">Total: {k.stok || 1} unit</span>
+          </div>
+
+          <div className="text-[11px] text-stone-500 mb-2 flex items-center gap-1">
+            <span>Besok:</span>
+            {k.is_full_besok ? (
+              <span className="text-red-600 font-bold">Penuh</span>
+            ) : (
+              <span className="text-emerald-700 font-semibold">Tersedia (Sisa {k.stok_besok ?? k.stok_tersedia} unit)</span>
+            )}
           </div>
 
           <Link to={`/kebaya/${k.slug}`}>
@@ -334,6 +343,10 @@ export default function Welcome() {
         gambarBelakang: k.foto_belakang_url ?? null,
         stok: k.stok ?? 1,
         stok_tersedia: k.stok_tersedia ?? 1,
+        stok_hari_ini: k.stok_hari_ini ?? k.stok_tersedia ?? 1,
+        stok_besok: k.stok_besok ?? k.stok_tersedia ?? 1,
+        is_full_hari_ini: k.is_full_hari_ini ?? false,
+        is_full_besok: k.is_full_besok ?? false,
         tersedia: k.tersedia ?? true,
       })))
     }).catch(() => {})

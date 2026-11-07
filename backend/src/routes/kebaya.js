@@ -27,6 +27,12 @@ const toPublic = (k) => ({
   stok: k.stok ?? 1,
   stok_disewa: k.stokDisewa ?? 0,
   stok_tersedia: k.stokTersedia ?? 1,
+  stok_hari_ini: k.stokHariIni ?? k.stokTersedia ?? 1,
+  stok_besok: k.stokBesok ?? k.stokTersedia ?? 1,
+  is_full_hari_ini: k.isFullHariIni ?? false,
+  is_full_besok: k.isFullBesok ?? false,
+  tersedia_hari_ini: k.tersediaHariIni ?? true,
+  tersedia_besok: k.tersediaBesok ?? true,
   foto_url: k.foto ? `/images/${k.foto}` : null,
   foto_belakang_url: k.fotoBelakang ? `/images/${k.fotoBelakang}` : null,
   kain_utama: k.kainUtama,
@@ -48,6 +54,10 @@ const toAdmin = (k) => ({
   stok: k.stok ?? 1,
   stok_disewa: k.stokDisewa ?? 0,
   stok_tersedia: k.stokTersedia ?? 1,
+  stok_hari_ini: k.stokHariIni ?? k.stokTersedia ?? 1,
+  stok_besok: k.stokBesok ?? k.stokTersedia ?? 1,
+  is_full_hari_ini: k.isFullHariIni ?? false,
+  is_full_besok: k.isFullBesok ?? false,
   foto: k.foto,
   foto_belakang: k.fotoBelakang,
   kain_utama: k.kainUtama,
@@ -88,6 +98,18 @@ router.get('/:slug/calendar', async (req, res) => {
     const cal = await svc.getAvailabilityCalendar(req.params.slug, year, month);
     if (!cal) return res.status(404).json({ message: 'Kebaya tidak ditemukan.' });
     res.json(cal);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// GET /api/kebaya/:slug/check-range — Real-time availability for custom date range
+router.get('/:slug/check-range', async (req, res) => {
+  try {
+    const { start, end } = req.query;
+    const result = await svc.checkRangeAvailability(req.params.slug, start, end);
+    if (!result) return res.status(404).json({ message: 'Kebaya tidak ditemukan.' });
+    res.json(result);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

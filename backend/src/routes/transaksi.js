@@ -320,8 +320,11 @@ router.post('/', async (req, res) => {
 router.get('/booked-dates', async (req, res) => {
   const namaKebaya = req.query.nama;
   if (!namaKebaya) {
-    return res.json({ nama_kebaya: '', booked_ranges: [], disabled_dates: [] });
+    return res.json({ nama_kebaya: '', booked_ranges: [], disabled_dates: [], total_stock: 1 });
   }
+
+  const kebaya = await prisma.kebaya.findFirst({ where: { nama: namaKebaya } });
+  const totalStock = kebaya?.stok || 1;
 
   const transaksi = await prisma.transaksiSewa.findMany({
     where: {
@@ -331,7 +334,7 @@ router.get('/booked-dates', async (req, res) => {
   });
 
   const bookedRanges = [];
-  const disabledDates = new Set();
+  const dateCounts = {};
 
   for (const t of transaksi) {
     if (t.tanggalSewa && t.tanggalPengembalian) {
@@ -348,16 +351,20 @@ router.get('/booked-dates', async (req, res) => {
 
       const curr = new Date(start);
       while (curr <= end) {
-        disabledDates.add(curr.toISOString().split('T')[0]);
+        const dStr = curr.toISOString().split('T')[0];
+        dateCounts[dStr] = (dateCounts[dStr] || 0) + 1;
         curr.setDate(curr.getDate() + 1);
       }
     }
   }
 
+  const disabledDates = Object.keys(dateCounts).filter(d => dateCounts[d] >= totalStock);
+
   res.json({
     nama_kebaya: namaKebaya,
+    total_stock: totalStock,
     booked_ranges: bookedRanges,
-    disabled_dates: [...disabledDates].sort(),
+    disabled_dates: disabledDates.sort(),
   });
 });
 

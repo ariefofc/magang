@@ -33,11 +33,32 @@ export default function KebayaDetail() {
 
   // Interactive booking dates
   const todayStr = new Date().toISOString().slice(0, 10)
+  const tomorrowStr = new Date(Date.now() + 86400000).toISOString().slice(0, 10)
   const [tglSewa, setTglSewa] = useState(todayStr)
   const [tglKembali, setTglKembali] = useState(
     new Date(Date.now() + 2 * 24 * 3600 * 1000).toISOString().slice(0, 10)
   )
   const [skemaBayar, setSkemaBayar] = useState('dp_50')
+  const [rangeAvailability, setRangeAvailability] = useState(null)
+  const [checkingRange, setCheckingRange] = useState(false)
+
+  // Fetch real-time range availability whenever dates or kebaya changes
+  useEffect(() => {
+    if (!slug || !tglSewa) return
+    let active = true
+    setCheckingRange(true)
+    api.get(`/kebaya/${slug}/check-range`, {
+      params: { start: tglSewa, end: tglKembali || tglSewa }
+    })
+      .then(r => {
+        if (active) setRangeAvailability(r.data)
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (active) setCheckingRange(false)
+      })
+    return () => { active = false }
+  }, [slug, tglSewa, tglKembali])
 
   useEffect(() => {
     setLoading(true)
@@ -91,7 +112,11 @@ export default function KebayaDetail() {
   ]
 
   const activeSrc = recolorResult || galleryItems[activeImg]?.src || frontImg
-  const isAvailable = kebaya.tersedia && (kebaya.stok_tersedia ?? 1) > 0
+
+  // Dynamic synchronized availability
+  const isRangeFull = rangeAvailability ? rangeAvailability.isFull : false
+  const selectedAvailSlots = rangeAvailability ? rangeAvailability.minAvailableSlots : (kebaya.stok_tersedia ?? 1)
+  const isAvailable = kebaya.status === 'aktif' && !isRangeFull && selectedAvailSlots > 0
 
   // Calculate duration and prices for Tokopedia-style checkout card
   const dSewa = tglSewa ? new Date(tglSewa) : null
@@ -220,12 +245,12 @@ export default function KebayaDetail() {
                 {isAvailable ? (
                   <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-md bg-emerald-600 text-white shadow-xs">
                     <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                    Stok: {kebaya.stok_tersedia}
+                    Tersedia • Sisa {selectedAvailSlots} Unit
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-md bg-stone-800 text-white shadow-xs">
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
-                    Habis Disewa
+                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-md bg-red-600 text-white shadow-xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                    {isRangeFull ? 'Full Booked' : 'Sedang Disewa'}
                   </span>
                 )}
               </div>
@@ -319,21 +344,62 @@ export default function KebayaDetail() {
                 </div>
               </div>
 
-              {/* Availability Banner */}
-              <div className={`p-3 rounded-lg text-xs flex items-center justify-between border ${
+              {/* Availability Banner — Synchronized with Calendar & Date Range */}
+              <div className={`p-4 rounded-xl text-xs space-y-2 border transition-all ${
                 isAvailable
-                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                  : 'bg-stone-100 border-stone-200 text-stone-700'
+                  ? 'bg-emerald-50/90 border-emerald-200 text-emerald-950'
+                  : 'bg-red-50/90 border-red-200 text-red-950'
               }`}>
-                <div className="flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full ${isAvailable ? 'bg-emerald-600' : 'bg-red-500'}`} />
-                  <span className="font-semibold">
-                    {isAvailable
-                      ? `Stok Tersedia: ${kebaya.stok_tersedia} dari total ${kebaya.stok || 1} unit`
-                      : 'Saat ini seluruh stok kebaya sedang dalam penyewaan'}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${isAvailable ? 'bg-emerald-600' : 'bg-red-600'}`} />
+                    <span className="font-bold text-xs sm:text-sm">
+                      {isAvailable
+                        ? `Tersedia: ${selectedAvailSlots} dari total ${kebaya.stok || 1} unit siap sewa`
+                        : `FULL BOOKED: Stok Penuh pada Tanggal Dipilih`}
+                    </span>
+                  </div>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded tracking-wide shrink-0 ${
+                    isAvailable ? 'bg-emerald-200/80 text-emerald-800' : 'bg-red-200/90 text-red-800'
+                  }`}>
+                    {isAvailable ? 'Siap Dipesan' : 'Stok Habis'}
                   </span>
                 </div>
-                <span className="text-[11px] font-medium text-stone-500">Kondisi: Siap Pakai</span>
+
+                {/* Status Ketersediaan Hari Ini & Besok + Rentang Terpilih */}
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] pt-1.5 border-t border-black/5 text-stone-600">
+                  <span className="flex items-center gap-1.5">
+                    <span className={`w-1.5 h-1.5 rounded-full ${kebaya.is_full_hari_ini ? 'bg-red-500' : 'bg-emerald-500'}`} />
+                    Hari Ini ({todayStr}): <strong className={kebaya.is_full_hari_ini ? 'text-red-700' : 'text-emerald-800'}>
+                      {kebaya.is_full_hari_ini ? 'Penuh' : `Sisa ${kebaya.stok_hari_ini ?? kebaya.stok_tersedia} unit`}
+                    </strong>
+                  </span>
+                  <span>•</span>
+                  <span className="flex items-center gap-1.5">
+                    <span className={`w-1.5 h-1.5 rounded-full ${kebaya.is_full_besok ? 'bg-red-500' : 'bg-emerald-500'}`} />
+                    Besok ({tomorrowStr}): <strong className={kebaya.is_full_besok ? 'text-red-700' : 'text-emerald-800'}>
+                      {kebaya.is_full_besok ? 'Penuh' : `Sisa ${kebaya.stok_besok ?? kebaya.stok_tersedia} unit`}
+                    </strong>
+                  </span>
+                  {tglSewa && (
+                    <>
+                      <span>•</span>
+                      <span className="text-stone-700">
+                        Jadwal: <strong>{tglSewa}</strong> s/d <strong>{tglKembali || tglSewa}</strong> ({rentalDays} hari)
+                      </span>
+                    </>
+                  )}
+                </div>
+
+                {!isAvailable && (
+                  <p className="text-[11px] text-red-700 pt-0.5 leading-relaxed font-medium">
+                    {rangeAvailability?.fullDates?.length > 0 ? (
+                      <>Tanggal <strong>{rangeAvailability.fullDates.join(', ')}</strong> sudah terisi penuh oleh penyewa lain. Silakan pilih tanggal lain yang berwarna hijau pada kalender.</>
+                    ) : (
+                      <>Kebaya sedang tidak tersedia pada tanggal yang Anda pilih. Silakan tentukan tanggal lain pada kalender.</>
+                    )}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -582,10 +648,22 @@ export default function KebayaDetail() {
                 <button
                   type="button"
                   onClick={() => setShowSewa(true)}
-                  disabled={!isAvailable}
-                  className="w-full py-3 rounded-lg bg-[#2C1A0E] hover:bg-[#3D2518] text-white font-bold text-sm transition shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                  disabled={!isAvailable || checkingRange}
+                  className={`w-full py-3.5 rounded-xl font-bold text-sm transition shadow-xs flex items-center justify-center gap-2 ${
+                    isAvailable
+                      ? 'bg-[#2C1A0E] hover:bg-[#3D2518] text-white cursor-pointer active:scale-[0.99]'
+                      : 'bg-red-50 border border-red-300 text-red-600 cursor-not-allowed opacity-90'
+                  }`}
                 >
-                  {isAvailable ? 'Sewa Sekarang' : 'Stok Sedang Habis'}
+                  {checkingRange ? (
+                    'Memeriksa Ketersediaan...'
+                  ) : isAvailable ? (
+                    `Sewa Sekarang (${rentalDays} Hari)`
+                  ) : isRangeFull ? (
+                    'Stok Habis pada Tanggal Ini (Full Booked)'
+                  ) : (
+                    'Kebaya Sedang Tidak Tersedia'
+                  )}
                 </button>
 
                 <a
@@ -678,6 +756,9 @@ export default function KebayaDetail() {
    Displays Red (Full) and Green (Available) per kebaya
 ═════════════════════════════════════════════════════════════════ */
 function AvailabilityCalendar({ slug, totalStock, tglSewa, tglKembali, onRangeSelect }) {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const tomorrowStr = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+
   const [targetYear, setTargetYear] = useState(() => {
     if (tglSewa) return new Date(tglSewa).getFullYear();
     return 2026;
@@ -690,6 +771,17 @@ function AvailabilityCalendar({ slug, totalStock, tglSewa, tglKembali, onRangeSe
   const [loadingCal, setLoadingCal] = useState(false);
   const [warningMsg, setWarningMsg] = useState('');
   const [pickingStart, setPickingStart] = useState(null);
+
+  // Sync calendar target month when tglSewa is updated from external inputs
+  useEffect(() => {
+    if (tglSewa) {
+      const d = new Date(tglSewa);
+      if (!isNaN(d.getTime())) {
+        setTargetYear(d.getFullYear());
+        setTargetMonth(d.getMonth() + 1);
+      }
+    }
+  }, [tglSewa]);
 
   const fetchCalendar = useCallback(async (y, m) => {
     setLoadingCal(true);
@@ -880,9 +972,12 @@ function AvailabilityCalendar({ slug, totalStock, tglSewa, tglKembali, onRangeSe
               </span>
             );
 
+            const isToday = dayStr === todayStr;
+            const isTomorrow = dayStr === tomorrowStr;
+
             if (isFull) {
               cellStyle = 'bg-red-50/90 border-red-200 text-red-600 cursor-not-allowed';
-              badge = <span className="text-[9px] font-bold text-red-600 block">Penuh</span>;
+              badge = <span className="text-[9px] font-bold text-red-600 block">Penuh (0 slot)</span>;
             } else if (isLimited) {
               cellStyle = 'bg-amber-50/90 border-amber-300 text-amber-900 hover:border-amber-500';
               badge = <span className="text-[9px] font-bold text-amber-700 block">Sisa 1</span>;
@@ -902,12 +997,24 @@ function AvailabilityCalendar({ slug, totalStock, tglSewa, tglKembali, onRangeSe
                 type="button"
                 onClick={() => handleDayClick(dayStr, dayObj)}
                 className={`h-16 p-1.5 rounded-lg border text-left flex flex-col justify-between transition-all ${cellStyle}`}
-                title={isFull ? 'Slot sewa pada tanggal ini sudah penuh' : `Tersedia ${dayObj.availableSlots} slot unit`}
+                title={isFull ? 'Slot sewa pada tanggal ini sudah penuh (Full Booked)' : `Tersedia ${dayObj.availableSlots} slot unit`}
               >
                 <div className="flex items-center justify-between">
-                  <span className={`text-xs font-bold ${isStart || isEnd ? 'text-white' : ''}`}>
-                    {dayNum}
-                  </span>
+                  <div className="flex items-center gap-1">
+                    <span className={`text-xs font-bold ${isStart || isEnd ? 'text-white' : ''}`}>
+                      {dayNum}
+                    </span>
+                    {isToday && (
+                      <span className={`text-[8px] font-extrabold px-1 rounded ${isStart || isEnd ? 'bg-amber-400 text-stone-900' : 'bg-stone-200 text-stone-700'}`}>
+                        Hari Ini
+                      </span>
+                    )}
+                    {isTomorrow && (
+                      <span className={`text-[8px] font-semibold px-1 rounded ${isStart || isEnd ? 'bg-amber-300 text-stone-900' : 'bg-stone-100 text-stone-600'}`}>
+                        Besok
+                      </span>
+                    )}
+                  </div>
                   {isFull && <span className="w-1.5 h-1.5 rounded-full bg-red-500" />}
                   {!isFull && isLimited && <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />}
                   {!isFull && !isLimited && !isStart && !isEnd && (
@@ -987,6 +1094,14 @@ function SewaModal({ kebaya, selectedSize, initialTglSewa, initialTglKembali, in
     metode_pembayaran: 'qris',
     skema_pembayaran: initialSkema || 'dp_50',
   })
+  const [modalRangeAvail, setModalRangeAvail] = useState(null)
+
+  useEffect(() => {
+    if (!kebaya?.slug || !form.tanggal_sewa) return
+    api.get(`/kebaya/${kebaya.slug}/check-range`, {
+      params: { start: form.tanggal_sewa, end: form.tanggal_pengembalian || form.tanggal_sewa }
+    }).then(r => setModalRangeAvail(r.data)).catch(() => {})
+  }, [kebaya?.slug, form.tanggal_sewa, form.tanggal_pengembalian])
 
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }))
 
@@ -1125,6 +1240,15 @@ function SewaModal({ kebaya, selectedSize, initialTglSewa, initialTglKembali, in
                   ))}
                 </div>
               </div>
+              {modalRangeAvail?.isFull && (
+                <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl font-medium flex items-start gap-2">
+                  <svg className="w-4 h-4 text-red-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  <span>
+                    Stok kebaya ini penuh pada jadwal {form.tanggal_sewa} s/d {form.tanggal_pengembalian}. Silakan pilih tanggal lain yang bertanda hijau pada kalender di atas.
+                  </span>
+                </div>
+              )}
+
               <div className="flex gap-2 pt-2">
                 <button
                   type="button"
@@ -1136,10 +1260,10 @@ function SewaModal({ kebaya, selectedSize, initialTglSewa, initialTglKembali, in
                 <button
                   type="button"
                   onClick={() => setStep(3)}
-                  disabled={!form.tanggal_sewa || !form.tanggal_pengembalian}
+                  disabled={!form.tanggal_sewa || !form.tanggal_pengembalian || modalRangeAvail?.isFull}
                   className="flex-1 py-2.5 rounded-lg bg-[#2C1A0E] text-white text-xs font-bold hover:bg-[#3D2518] transition disabled:opacity-40"
                 >
-                  Lihat Ringkasan &rarr;
+                  {modalRangeAvail?.isFull ? 'Jadwal Penuh (Pilih Tanggal Lain)' : 'Lihat Ringkasan →'}
                 </button>
               </div>
             </>
