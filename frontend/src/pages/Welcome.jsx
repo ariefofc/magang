@@ -13,16 +13,81 @@ const SCHEMES = [
   { label: 'Lunas 100%', value: 'lunas' },
 ]
 const STEPS_SEWA = [
-  { icon: '🔍', title: 'Pilih Kebaya', desc: 'Jelajahi koleksi kami dan pilih kebaya impian Anda' },
-  { icon: '📝', title: 'Isi Form Sewa', desc: 'Lengkapi data diri dan detail penyewaan' },
-  { icon: '💳', title: 'Bayar DP', desc: 'Lakukan pembayaran DP atau lunas via QRIS' },
-  { icon: '✨', title: 'Ambil Kebaya', desc: 'Kebaya siap diambil sesuai tanggal sewa' },
+  {
+    icon: (
+      <svg className="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+      </svg>
+    ),
+    title: 'Pilih Kebaya',
+    desc: 'Jelajahi katalog koleksi kami dengan ketersediaan stok aktual dan tampak depan & belakang.',
+  },
+  {
+    icon: (
+      <svg className="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+    ),
+    title: 'Isi Data Sewa',
+    desc: 'Pilih ukuran busana, tentukan tanggal sewa dan pengembalian, serta lengkapi kontak.',
+  },
+  {
+    icon: (
+      <svg className="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+      </svg>
+    ),
+    title: 'Pembayaran Fleksibel',
+    desc: 'Pilihan DP 50%, DP 70%, atau Lunas via QRIS, Transfer Bank, maupun Bayar di Tempat.',
+  },
+  {
+    icon: (
+      <svg className="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M5 13l4 4L19 7" />
+      </svg>
+    ),
+    title: 'Fitting & Ambil',
+    desc: 'Jadwalkan fitting di butik kami atau langsung ambil kebaya dalam kondisi siap pakai.',
+  },
 ]
+
 const SERVICES = [
-  { icon: '🎨', title: 'AI Recolor', desc: 'Visualisasikan kebaya dalam warna favoritmu dengan teknologi AI' },
-  { icon: '💬', title: 'Live Chat', desc: 'Konsultasi langsung dengan tim kami kapan saja' },
-  { icon: '📱', title: 'QRIS Payment', desc: 'Pembayaran mudah dan aman via QRIS' },
-  { icon: '📄', title: 'PDF Nota', desc: 'Nota digital otomatis untuk setiap transaksi' },
+  {
+    icon: (
+      <svg className="w-7 h-7 text-[#2C1A0E]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M7 21a4 4 0 01-4-4 5 5 0 014-4h4a5 5 0 014 4 4 4 0 01-4 4H7zm0 0a4 4 0 004-4v-1a5 5 0 00-5-5H6a5 5 0 00-5 5v1a4 4 0 004 4h2z" />
+      </svg>
+    ),
+    title: 'Simulasi Warna Kain',
+    desc: 'Visualisasikan kain kebaya dalam berbagai varian warna sebelum memesan.',
+  },
+  {
+    icon: (
+      <svg className="w-7 h-7 text-[#2C1A0E]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+      </svg>
+    ),
+    title: 'Konsultasi Live Chat',
+    desc: 'Bantuan instan mengenai fitting, rekomendasi busana, dan FAQ operasional.',
+  },
+  {
+    icon: (
+      <svg className="w-7 h-7 text-[#2C1A0E]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+      </svg>
+    ),
+    title: 'Pembayaran QRIS & Bank',
+    desc: 'Pembayaran digital terverifikasi otomatis dengan bukti transaksi sah.',
+  },
+  {
+    icon: (
+      <svg className="w-7 h-7 text-[#2C1A0E]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+    ),
+    title: 'Nota & Bukti Sewa Digital',
+    desc: 'Invoice digital resmi lengkap dengan rincian jadwal sewa dan barcode status.',
+  },
 ]
 
 function SewaModal({ kebaya, onClose }) {
@@ -160,6 +225,99 @@ function SewaModal({ kebaya, onClose }) {
   )
 }
 
+function KebayaCard({ k }) {
+  const [showBack, setShowBack] = useState(false);
+  const isAvailable = k.tersedia && (k.stok_tersedia ?? 1) > 0;
+  const currentImg = showBack && k.gambarBelakang ? k.gambarBelakang : k.gambar;
+
+  return (
+    <div className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 border border-stone-200/90 flex flex-col">
+      <div className="relative overflow-hidden aspect-[3/4] bg-stone-100">
+        <Link to={`/kebaya/${k.slug}`} className="block w-full h-full">
+          <img
+            src={currentImg || 'https://placehold.co/400x533/2C1A0E/fbbf24?text=Kebaya'}
+            alt={k.nama}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            onError={(e) => { e.target.src = 'https://placehold.co/400x533/2C1A0E/fbbf24?text=Kebaya' }}
+          />
+        </Link>
+
+        {/* Top Floating Badges */}
+        <div className="absolute top-3 inset-x-3 flex items-center justify-between pointer-events-none">
+          {isAvailable ? (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-600 text-white shadow-md">
+              <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+              Tersedia • Sisa {k.stok_tersedia}
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-stone-900/90 text-white shadow-md">
+              <span className="w-2 h-2 rounded-full bg-red-400" />
+              Habis / Disewa
+            </span>
+          )}
+
+          {k.gambarBelakang && (
+            <span className="text-[11px] font-medium bg-black/60 text-white px-2 py-0.5 rounded backdrop-blur-xs">
+              {showBack ? 'Belakang' : 'Depan'}
+            </span>
+          )}
+        </div>
+
+        {/* Front / Back Toggle Buttons on Image */}
+        {k.gambarBelakang && (
+          <div className="absolute bottom-3 right-3 flex items-center gap-1 bg-white/95 backdrop-blur-sm p-1 rounded-lg shadow-md border border-stone-200">
+            <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowBack(false); }}
+              className={`px-2.5 py-1 text-[11px] font-bold rounded transition ${!showBack ? 'bg-[#2C1A0E] text-white' : 'text-stone-600 hover:text-stone-900'}`}
+            >
+              Depan
+            </button>
+            <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowBack(true); }}
+              className={`px-2.5 py-1 text-[11px] font-bold rounded transition ${showBack ? 'bg-[#2C1A0E] text-white' : 'text-stone-600 hover:text-stone-900'}`}
+            >
+              Belakang
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="p-5 flex-1 flex flex-col justify-between">
+        <div>
+          <div className="flex items-center justify-between text-xs mb-2">
+            <span className={`inline-flex items-center gap-1 font-semibold ${isAvailable ? 'text-emerald-700' : 'text-stone-500'}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${isAvailable ? 'bg-emerald-500' : 'bg-stone-400'}`} />
+              {isAvailable ? `Tersedia (${k.stok_tersedia} siap sewa)` : 'Sedang disewa'}
+            </span>
+            <span className="text-stone-400">Total: {k.stok || 1} unit</span>
+          </div>
+
+          <Link to={`/kebaya/${k.slug}`}>
+            <h3 className="font-bold text-[#2C1A0E] text-lg mb-1.5 hover:text-amber-700 transition truncate">{k.nama}</h3>
+          </Link>
+          <p className="text-stone-500 text-sm mb-4 line-clamp-2 leading-relaxed">{k.deskripsi || 'Kebaya premium berkualitas tinggi'}</p>
+        </div>
+
+        <div className="pt-3 border-t border-stone-100 flex items-center justify-between">
+          <div>
+            <span className="text-[11px] text-stone-400 block uppercase tracking-wider font-semibold">Harga Sewa</span>
+            <span className="text-amber-700 font-extrabold text-lg">{fmt.format(k.harga)}</span>
+          </div>
+          <Link
+            to={`/kebaya/${k.slug}`}
+            className="px-4 py-2 rounded-lg bg-[#2C1A0E] text-white text-xs font-bold hover:bg-[#3D2518] transition inline-flex items-center gap-1.5 shadow-sm"
+          >
+            Detail & Sewa
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Welcome() {
   const [kebayas, setKebayas] = useState([])
   const [selected, setSelected] = useState(null) // ponytail: kept for SewaModal if re-enabled
@@ -173,6 +331,10 @@ export default function Welcome() {
         nama: k.nama_kebaya ?? k.nama,
         harga: k.harga_sewa_per_hari ?? k.harga,
         gambar: k.foto_url ?? k.gambar,
+        gambarBelakang: k.foto_belakang_url ?? null,
+        stok: k.stok ?? 1,
+        stok_tersedia: k.stok_tersedia ?? 1,
+        tersedia: k.tersedia ?? true,
       })))
     }).catch(() => {})
   }, [])
@@ -250,31 +412,7 @@ export default function Welcome() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {kebayas.map((k) => (
-                <Link key={k.slug || k.id} to={`/kebaya/${k.slug}`} className="group bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 border border-stone-100">
-                  <div className="relative overflow-hidden aspect-[3/4] bg-stone-100">
-                    <img
-                      src={k.gambar || 'https://placehold.co/400x533/2C1A0E/fbbf24?text=Kebaya'}
-                      alt={k.nama}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      onError={(e) => { e.target.src = 'https://placehold.co/400x533/2C1A0E/fbbf24?text=Kebaya' }}
-                    />
-                    {k.status === 'disewa' && (
-                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                        <span className="bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full">Sedang Disewa</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-5">
-                    <h3 className="font-bold text-[#2C1A0E] text-lg mb-1 truncate">{k.nama}</h3>
-                    <p className="text-stone-500 text-sm mb-3 line-clamp-2">{k.deskripsi || 'Kebaya premium berkualitas tinggi'}</p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-amber-600 font-bold text-lg">{fmt.format(k.harga)}</span>
-                      <span className="px-4 py-2 rounded-lg bg-[#2C1A0E] text-white text-sm font-semibold group-hover:bg-[#3D2518] transition">
-                        Lihat Detail
-                      </span>
-                    </div>
-                  </div>
-                </Link>
+                <KebayaCard key={k.slug || k.id} k={k} />
               ))}
             </div>
           )}
@@ -291,7 +429,7 @@ export default function Welcome() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             {STEPS_SEWA.map((s, i) => (
               <div key={i} className="text-center">
-                <div className="w-16 h-16 rounded-full bg-amber-400/10 border-2 border-amber-400 flex items-center justify-center text-3xl mx-auto mb-4">{s.icon}</div>
+                <div className="w-14 h-14 rounded-full bg-amber-400/10 border-2 border-amber-400/80 flex items-center justify-center mx-auto mb-4">{s.icon}</div>
                 <div className="text-amber-400 text-xs font-bold mb-2">STEP {i + 1}</div>
                 <h3 className="text-white font-bold text-lg mb-2">{s.title}</h3>
                 <p className="text-stone-400 text-sm">{s.desc}</p>
@@ -310,8 +448,8 @@ export default function Welcome() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {SERVICES.map((s, i) => (
-              <div key={i} className="bg-white rounded-2xl p-6 shadow-md border border-stone-100 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 text-center">
-                <div className="text-4xl mb-4">{s.icon}</div>
+              <div key={i} className="bg-white rounded-2xl p-6 shadow-sm border border-stone-200/80 hover:shadow-md hover:-translate-y-1 transition-all duration-300 text-center">
+                <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-200/70 flex items-center justify-center mx-auto mb-4">{s.icon}</div>
                 <h3 className="font-bold text-[#2C1A0E] text-lg mb-2">{s.title}</h3>
                 <p className="text-stone-500 text-sm">{s.desc}</p>
               </div>

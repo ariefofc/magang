@@ -3,26 +3,84 @@
  */
 const prisma = require('../prisma');
 
-class KebayaService {
-  async getAll() {
-    return prisma.kebaya.findMany({ orderBy: { id: 'asc' } });
-  }
+const ACTIVE_RENTAL_STATUSES = [
+  'Menunggu Pembayaran DP',
+  'Menunggu Konfirmasi',
+  'Telah Dikonfirmasi',
+  'Menunggu Fitting',
+  'Sedang Fitting',
+  'Kebaya Telah Diambil',
+  'Mengajukan Pengembalian',
+];
 
-  async getPublic() {
-    return prisma.kebaya.findMany({
-      where: { status: { in: ['aktif', 'segera'] } },
-      orderBy: { id: 'asc' },
+class KebayaService {
+  async enrichWithStock(kebayaList) {
+    if (!kebayaList || kebayaList.length === 0) return [];
+
+    const activeRentals = await prisma.transaksiSewa.groupBy({
+      by: ['namaKebaya'],
+      where: {
+        status: { in: ACTIVE_RENTAL_STATUSES },
+      },
+      _count: {
+        id: true,
+      },
+    });
+
+    const rentalMap = {};
+    activeRentals.forEach((r) => {
+      rentalMap[r.namaKebaya] = r._count.id;
+    });
+
+    return kebayaList.map((k) => {
+      const totalStok = k.stok ?? 1;
+      const stokDisewa = rentalMap[k.nama] || 0;
+      const stokTersedia = Math.max(0, totalStok - stokDisewa);
+
+      let displayStatus = k.status;
+      let tersedia = k.status === 'aktif';
+      if (k.status === 'aktif' && stokTersedia <= 0) {
+        displayStatus = 'disewa';
+        tersedia = false;
+      }
+
+      return {
+        ...k,
+        stok: totalStok,
+        stokDisewa,
+        stokTersedia,
+        tersedia,
+        displayStatus,
+      };
     });
   }
 
+  async getAll() {
+    const list = await prisma.kebaya.findMany({ orderBy: { id: 'asc' } });
+    return this.enrichWithStock(list);
+  }
+
+  async getPublic() {
+    const list = await prisma.kebaya.findMany({
+      where: { status: { in: ['aktif', 'segera'] } },
+      orderBy: { id: 'asc' },
+    });
+    return this.enrichWithStock(list);
+  }
+
   async findBySlug(slug) {
-    return prisma.kebaya.findUnique({ where: { slug } });
+    const k = await prisma.kebaya.findUnique({ where: { slug } });
+    if (!k) return null;
+    const [enriched] = await this.enrichWithStock([k]);
+    return enriched;
   }
 
   async create(data) {
     const slug = (data.nama || 'kebaya-' + Date.now())
       .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-    return prisma.kebaya.create({ data: { ...data, slug } });
+    const created = await prisma.kebaya.create({ data: { ...data, slug } });
+    const [enriched] = await this.enrichWithStock([created]);
+    return enriched;
   }
 
   async update(slug, data) {
@@ -30,7 +88,9 @@ class KebayaService {
     if (data.nama) {
       data.slug = data.nama.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
     }
-    return prisma.kebaya.update({ where: { slug }, data });
+    const updated = await prisma.kebaya.update({ where: { slug }, data });
+    const [enriched] = await this.enrichWithStock([updated]);
+    return enriched;
   }
 
   async delete(slug) {

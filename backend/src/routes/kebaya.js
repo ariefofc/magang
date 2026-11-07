@@ -19,10 +19,14 @@ const svc = new KebayaService();
 
 // Helper: format kebaya for public API
 const toPublic = (k) => ({
+  id: k.id,
   slug: k.slug,
   nama_kebaya: k.nama,
   deskripsi: k.deskripsi,
   harga_sewa_per_hari: k.harga,
+  stok: k.stok ?? 1,
+  stok_disewa: k.stokDisewa ?? 0,
+  stok_tersedia: k.stokTersedia ?? 1,
   foto_url: k.foto ? `/images/${k.foto}` : null,
   foto_belakang_url: k.fotoBelakang ? `/images/${k.fotoBelakang}` : null,
   kain_utama: k.kainUtama,
@@ -30,8 +34,8 @@ const toPublic = (k) => ({
   karakteristik_kain: k.karakteristikKain,
   detail_payet: k.detailPayet,
   rekomendasi_acara: k.rekomendasiAcara,
-  tersedia: k.status === 'aktif',
-  status: k.status,
+  tersedia: k.tersedia ?? (k.status === 'aktif'),
+  status: k.displayStatus || k.status,
 });
 
 // Helper: format for admin API
@@ -41,6 +45,9 @@ const toAdmin = (k) => ({
   nama: k.nama,
   deskripsi: k.deskripsi,
   harga: k.harga,
+  stok: k.stok ?? 1,
+  stok_disewa: k.stokDisewa ?? 0,
+  stok_tersedia: k.stokTersedia ?? 1,
   foto: k.foto,
   foto_belakang: k.fotoBelakang,
   kain_utama: k.kainUtama,
@@ -49,6 +56,8 @@ const toAdmin = (k) => ({
   detail_payet: k.detailPayet,
   rekomendasi_acara: k.rekomendasiAcara,
   status: k.status,
+  display_status: k.displayStatus || k.status,
+  tersedia: k.tersedia ?? (k.status === 'aktif'),
   created_at: k.createdAt,
 });
 
@@ -93,6 +102,7 @@ router.post('/', auth, checkRole('admin', 'super_admin'), upload.fields([
       nama: req.body.nama,
       deskripsi: req.body.deskripsi || null,
       harga: parseInt(req.body.harga) || 0,
+      stok: parseInt(req.body.stok) || 1,
       foto: req.files?.foto?.[0]?.filename || null,
       fotoBelakang: req.files?.foto_belakang?.[0]?.filename || null,
       kainUtama: req.body.kain_utama || null,
@@ -123,6 +133,7 @@ router.put('/:slug', auth, checkRole('admin', 'super_admin'), upload.fields([
     if (req.body.nama) data.nama = req.body.nama;
     if (req.body.deskripsi !== undefined) data.deskripsi = req.body.deskripsi;
     if (req.body.harga) data.harga = parseInt(req.body.harga);
+    if (req.body.stok !== undefined && req.body.stok !== '') data.stok = parseInt(req.body.stok);
     if (req.body.kain_utama !== undefined) data.kainUtama = req.body.kain_utama;
     if (req.body.furing !== undefined) data.furing = req.body.furing;
     if (req.body.karakteristik_kain !== undefined) data.karakteristikKain = req.body.karakteristik_kain;

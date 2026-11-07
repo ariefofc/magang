@@ -212,6 +212,11 @@ export default function Dashboard() {
   const pengembalianList = allTransaksi.filter(t => t.status === 'Mengajukan Pengembalian');
   const pagination = data.pagination || {};
 
+  // If user role is owner, render dedicated Analytics Dashboard only
+  if (user?.role === 'owner') {
+    return <OwnerDashboard user={user} onLogout={handleLogout} />;
+  }
+
   // ═════════════════════════════════════════════
   //  RENDER
   // ═════════════════════════════════════════════
@@ -431,8 +436,8 @@ function TabKatalog({ items, onToggle, onDelete, onSave }) {
   const [fotoBelakangFile, setFotoBelakangFile] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  const openAdd = () => { setEditing(null); setForm({ nama: '', deskripsi: '', harga: '', kain_utama: '', furing: '', karakteristik_kain: '', detail_payet: '', rekomendasi_acara: '', status: 'aktif' }); setFotoFile(null); setFotoBelakangFile(null); setShowModal(true); };
-  const openEdit = (k) => { setEditing(k); setForm({ nama: k.nama, deskripsi: k.deskripsi || '', harga: k.harga || '', kain_utama: k.kain_utama || '', furing: k.furing || '', karakteristik_kain: k.karakteristik_kain || '', detail_payet: k.detail_payet || '', rekomendasi_acara: k.rekomendasi_acara || '', status: k.status || 'aktif' }); setFotoFile(null); setFotoBelakangFile(null); setShowModal(true); };
+  const openAdd = () => { setEditing(null); setForm({ nama: '', deskripsi: '', harga: '', stok: 1, kain_utama: '', furing: '', karakteristik_kain: '', detail_payet: '', rekomendasi_acara: '', status: 'aktif' }); setFotoFile(null); setFotoBelakangFile(null); setShowModal(true); };
+  const openEdit = (k) => { setEditing(k); setForm({ nama: k.nama, deskripsi: k.deskripsi || '', harga: k.harga || '', stok: k.stok ?? 1, kain_utama: k.kain_utama || '', furing: k.furing || '', karakteristik_kain: k.karakteristik_kain || '', detail_payet: k.detail_payet || '', rekomendasi_acara: k.rekomendasi_acara || '', status: k.status || 'aktif' }); setFotoFile(null); setFotoBelakangFile(null); setShowModal(true); };
   const close = () => { setShowModal(false); setEditing(null); };
 
   const handleSave = async () => {
@@ -474,10 +479,33 @@ function TabKatalog({ items, onToggle, onDelete, onSave }) {
               <h4 className="font-semibold text-sm text-[#2C1A0E] truncate">{k.nama}</h4>
               <p className="text-xs text-gray-500 line-clamp-2">{k.deskripsi}</p>
               <p className="text-amber-600 font-bold text-sm">Rp {(k.harga || 0).toLocaleString('id-ID')}</p>
+              
+              {/* Dynamic Stock Info */}
+              <div className="bg-stone-50 rounded-lg p-2 text-xs grid grid-cols-3 gap-1 text-center border border-stone-200">
+                <div>
+                  <span className="text-stone-400 block text-[10px] uppercase font-semibold">Stok</span>
+                  <span className="font-bold text-stone-800">{k.stok ?? 1}</span>
+                </div>
+                <div>
+                  <span className="text-stone-400 block text-[10px] uppercase font-semibold">Disewa</span>
+                  <span className="font-bold text-amber-600">{k.stok_disewa ?? 0}</span>
+                </div>
+                <div>
+                  <span className="text-stone-400 block text-[10px] uppercase font-semibold">Sisa</span>
+                  <span className={`font-bold ${(k.stok_tersedia ?? 1) > 0 ? 'text-emerald-600' : 'text-red-600'}`}>{k.stok_tersedia ?? 1}</span>
+                </div>
+              </div>
+
               <div className="flex items-center justify-between gap-2">
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${KEBAYA_STATUS_COLORS[k.status] || 'bg-gray-100 text-gray-600'}`}>
-                  {k.status}
-                </span>
+                {(k.stok_tersedia ?? 1) <= 0 ? (
+                  <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-red-100 text-red-700 border border-red-200">
+                    Habis Disewa
+                  </span>
+                ) : (
+                  <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium capitalize ${KEBAYA_STATUS_COLORS[k.status] || 'bg-gray-100 text-gray-600'}`}>
+                    {k.status}
+                  </span>
+                )}
                 <div className="flex gap-1">
                   <button onClick={() => onToggle(k.slug)} title="Toggle Status" className="text-xs px-2 py-1 rounded bg-stone-100 hover:bg-stone-200 transition">
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
@@ -504,10 +532,11 @@ function TabKatalog({ items, onToggle, onDelete, onSave }) {
               <button onClick={close} className="text-white/70 hover:text-white text-2xl leading-none">&times;</button>
             </div>
             <div className="px-6 py-5 space-y-4">
-              {/* Row 1: Nama + Harga */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div><label className={labelCls}>Nama Kebaya *</label><input className={inputCls} value={form.nama} onChange={set('nama')} placeholder="Nama kebaya" /></div>
+              {/* Row 1: Nama + Harga + Stok */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="sm:col-span-1"><label className={labelCls}>Nama Kebaya *</label><input className={inputCls} value={form.nama} onChange={set('nama')} placeholder="Nama kebaya" /></div>
                 <div><label className={labelCls}>Harga Sewa / Hari (Rp)</label><input type="number" className={inputCls} value={form.harga} onChange={set('harga')} placeholder="850000" /></div>
+                <div><label className={labelCls}>Jumlah Stok Total</label><input type="number" min="1" className={inputCls} value={form.stok} onChange={set('stok')} placeholder="1" /></div>
               </div>
 
               {/* Deskripsi */}
@@ -914,3 +943,791 @@ function TabLogAudit({ userName }) {
     </div>
   );
 }
+
+// ═════════════════════════════════════════════════════════════════
+//  OWNER ANALYTICS DASHBOARD (ROLE: OWNER ONLY)
+// ═════════════════════════════════════════════════════════════════
+function OwnerDashboard({ user, onLogout }) {
+  const [activeTab, setActiveTab] = useState('bisnis'); // 'bisnis' | 'kinerja'
+  const [transaksiList, setTransaksiList] = useState([]);
+  const [adminPerf, setAdminPerf] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState({ year: '2026', month: '', status: '' });
+  const [exportDropdown, setExportDropdown] = useState(false);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = {};
+      if (filters.year) params.year = filters.year;
+      if (filters.month) params.month = filters.month;
+      if (filters.status) params.status = filters.status;
+
+      const [resTrx, resPerf] = await Promise.all([
+        api.get('/transaksi/dashboard', { params }),
+        api.get('/transaksi/admin-performance').catch(() => ({ data: { performance: [] } })),
+      ]);
+
+      const all = resTrx.data.allLaporanTransaksi || resTrx.data.daftarTransaksi || [];
+      setTransaksiList(all);
+      setAdminPerf(resPerf.data?.performance || []);
+    } catch {
+      /* silent */
+    } finally {
+      setLoading(false);
+    }
+  }, [filters]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Key metrics calculation
+  const totalRevenue = transaksiList.reduce((sum, t) => sum + Number(t.totalHarga || 0), 0);
+  const totalOrders = transaksiList.length;
+  const completedOrders = transaksiList.filter((t) => t.status === 'Telah Dikembalikan').length;
+  const activeOrders = transaksiList.filter((t) => !['Telah Dikembalikan', 'Dibatalkan'].includes(t.status)).length;
+  const cancelledOrders = transaksiList.filter((t) => t.status === 'Dibatalkan').length;
+  const completionRate = totalOrders > 0 ? Math.round((completedOrders / (totalOrders - cancelledOrders || 1)) * 100) : 100;
+  const avgOrderValue = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0;
+
+  // Monthly revenue breakdown
+  const MONTHS_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+  const monthlyData = MONTHS_NAMES.map((name, idx) => {
+    const list = transaksiList.filter((t) => {
+      const d = new Date(t.createdAt);
+      return d.getMonth() === idx;
+    });
+    const rev = list.reduce((s, t) => s + Number(t.totalHarga || 0), 0);
+    return { name, count: list.length, revenue: rev };
+  });
+  const maxMonthlyRevenue = Math.max(...monthlyData.map((m) => m.revenue), 1);
+
+  // Kebaya popularity breakdown
+  const kebayaRankMap = {};
+  transaksiList.forEach((t) => {
+    const name = t.namaKebaya || 'Kebaya';
+    if (!kebayaRankMap[name]) kebayaRankMap[name] = { name, count: 0, revenue: 0 };
+    kebayaRankMap[name].count += 1;
+    kebayaRankMap[name].revenue += Number(t.totalHarga || 0);
+  });
+  const popularKebaya = Object.values(kebayaRankMap).sort((a, b) => b.count - a.count);
+
+  // Status breakdown
+  const statusMap = {};
+  transaksiList.forEach((t) => {
+    statusMap[t.status] = (statusMap[t.status] || 0) + 1;
+  });
+
+  // ── EXPORT ENGINE: EXCEL (.XLS) ──
+  const exportToExcel = (type) => {
+    let htmlContent = '';
+    const dateStr = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+
+    if (type === 'bisnis') {
+      htmlContent = `
+        <table border="1" cellpadding="6" cellspacing="0">
+          <tr style="background:#2C1A0E;color:#ffffff;font-size:16px;">
+            <th colspan="8" align="center">LAPORAN PROSES BISNIS & STATISTIK SEWA KEBAYA - BUTIK MAYANGSARI</th>
+          </tr>
+          <tr><td colspan="8">Dicetak Tanggal: ${dateStr} | Otoritas: Owner Eksekutif</td></tr>
+          <tr><td colspan="8">Total Pendapatan: Rp ${totalRevenue.toLocaleString('id-ID')} | Total Transaksi: ${totalOrders} | Selesai: ${completedOrders}</td></tr>
+          <tr><td colspan="8"></td></tr>
+          <tr style="background:#f2f2f2;font-weight:bold;">
+            <th>No</th><th>Kode Transaksi</th><th>Nama Kebaya</th><th>Nama Penyewa</th><th>Ukuran</th><th>Total Harga</th><th>Status Sewa</th><th>Tanggal Dibuat</th>
+          </tr>
+          ${transaksiList.map((t, i) => `
+            <tr>
+              <td>${i + 1}</td>
+              <td>${t.kodeTransaksi}</td>
+              <td>${t.namaKebaya}</td>
+              <td>${t.namaUser}</td>
+              <td>${t.ukuran}</td>
+              <td>Rp ${Number(t.totalHarga).toLocaleString('id-ID')}</td>
+              <td>${t.status}</td>
+              <td>${new Date(t.createdAt).toLocaleDateString('id-ID')}</td>
+            </tr>
+          `).join('')}
+          <tr style="font-weight:bold;background:#e6e6e6;">
+            <td colspan="5" align="right">TOTAL OMSET:</td>
+            <td colspan="3">Rp ${totalRevenue.toLocaleString('id-ID')}</td>
+          </tr>
+        </table>
+      `;
+      downloadBlob(htmlContent, `Laporan-Bisnis-Mayangsari-${Date.now()}.xls`, 'application/vnd.ms-excel;charset=utf-8');
+    } else {
+      htmlContent = `
+        <table border="1" cellpadding="6" cellspacing="0">
+          <tr style="background:#2C1A0E;color:#ffffff;font-size:16px;">
+            <th colspan="9" align="center">LAPORAN EVALUASI KINERJA ADMIN & SUPERADMIN - BUTIK MAYANGSARI</th>
+          </tr>
+          <tr><td colspan="9">Dicetak Tanggal: ${dateStr} | Otoritas: Owner Eksekutif</td></tr>
+          <tr><td colspan="9">Total Staf Evaluasi: ${adminPerf.length} Orang | Total Order Dikelola: ${totalOrders}</td></tr>
+          <tr><td colspan="9"></td></tr>
+          <tr style="background:#f2f2f2;font-weight:bold;">
+            <th>No</th><th>Nama Petugas</th><th>Email</th><th>Role</th><th>Order Dikelola</th><th>Order Dikonfirmasi</th><th>Order Selesai</th><th>Tingkat Keberhasilan</th><th>Status Evaluasi</th>
+          </tr>
+          ${adminPerf.map((p, i) => `
+            <tr>
+              <td>${i + 1}</td>
+              <td>${p.name}</td>
+              <td>${p.email}</td>
+              <td>${p.role}</td>
+              <td>${p.totalManaged}</td>
+              <td>${p.totalConfirmed}</td>
+              <td>${p.totalCompleted}</td>
+              <td>${p.completionRate}%</td>
+              <td>${p.status}</td>
+            </tr>
+          `).join('')}
+        </table>
+      `;
+      downloadBlob(htmlContent, `Laporan-Kinerja-Admin-Mayangsari-${Date.now()}.xls`, 'application/vnd.ms-excel;charset=utf-8');
+    }
+    setExportDropdown(false);
+  };
+
+  // ── EXPORT ENGINE: WORD (.DOC) ──
+  const exportToWord = (type) => {
+    const dateStr = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+    let docTitle = type === 'bisnis' ? 'Laporan Proses Bisnis Sewa Kebaya' : 'Laporan Evaluasi Kinerja Admin & Superadmin';
+
+    let tableHtml = '';
+    if (type === 'bisnis') {
+      tableHtml = `
+        <table style="width:100%;border-collapse:collapse;margin-top:15px;" border="1" cellpadding="5">
+          <tr style="background-color:#2C1A0E;color:#ffffff;">
+            <th>No</th><th>Kode</th><th>Busana Kebaya</th><th>Penyewa</th><th>Ukuran</th><th>Total Biaya</th><th>Status</th><th>Tanggal</th>
+          </tr>
+          ${transaksiList.map((t, i) => `
+            <tr>
+              <td align="center">${i + 1}</td>
+              <td><strong>${t.kodeTransaksi}</strong></td>
+              <td>${t.namaKebaya}</td>
+              <td>${t.namaUser}</td>
+              <td align="center">${t.ukuran}</td>
+              <td>Rp ${Number(t.totalHarga).toLocaleString('id-ID')}</td>
+              <td>${t.status}</td>
+              <td>${new Date(t.createdAt).toLocaleDateString('id-ID')}</td>
+            </tr>
+          `).join('')}
+        </table>
+        <p style="margin-top:15px;font-size:12pt;"><strong>Total Akumulasi Omset: Rp ${totalRevenue.toLocaleString('id-ID')}</strong></p>
+      `;
+    } else {
+      tableHtml = `
+        <table style="width:100%;border-collapse:collapse;margin-top:15px;" border="1" cellpadding="5">
+          <tr style="background-color:#2C1A0E;color:#ffffff;">
+            <th>No</th><th>Nama Petugas</th><th>Email</th><th>Role</th><th>Order Dikelola</th><th>Dikonfirmasi</th><th>Selesai</th><th>Keberhasilan</th><th>Evaluasi</th>
+          </tr>
+          ${adminPerf.map((p, i) => `
+            <tr>
+              <td align="center">${i + 1}</td>
+              <td><strong>${p.name}</strong></td>
+              <td>${p.email}</td>
+              <td>${p.role}</td>
+              <td align="center">${p.totalManaged}</td>
+              <td align="center">${p.totalConfirmed}</td>
+              <td align="center">${p.totalCompleted}</td>
+              <td align="center">${p.completionRate}%</td>
+              <td>${p.status}</td>
+            </tr>
+          `).join('')}
+        </table>
+      `;
+    }
+
+    const wordDoc = `
+      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+      <head>
+        <meta charset='utf-8'>
+        <title>${docTitle}</title>
+        <style>
+          body { font-family: 'Calibri', Arial, sans-serif; font-size: 11pt; color: #222; }
+          h1 { text-align: center; color: #2C1A0E; margin-bottom: 2px; }
+          h2 { text-align: center; color: #666; font-size: 12pt; margin-top: 0; }
+          .meta { margin-bottom: 20px; padding: 10px; background-color: #f7f7f7; border-left: 4px solid #2C1A0E; }
+          th { background-color: #2C1A0E; color: #ffffff; padding: 6px; font-size: 10pt; }
+          td { padding: 5px; font-size: 9.5pt; }
+          .signature { margin-top: 50px; text-align: right; }
+        </style>
+      </head>
+      <body>
+        <h1>BUTIK MAYANGSARI KEBAYA RENTAL</h1>
+        <h2>${docTitle.toUpperCase()}</h2>
+        <div class="meta">
+          <p><strong>Periode Laporan:</strong> Tahun 2026 (Aktual)</p>
+          <p><strong>Tanggal Pengesahan:</strong> ${dateStr}</p>
+          <p><strong>Penerima Laporan:</strong> Owner Eksekutif</p>
+        </div>
+        ${tableHtml}
+        <div class="signature">
+          <p>Yogyakarta, ${dateStr}</p>
+          <p>Mengetahui dan Mengesahkan,</p>
+          <br/><br/><br/>
+          <p><strong>( Owner Butik Mayangsari )</strong></p>
+        </div>
+      </body>
+      </html>
+    `;
+    downloadBlob(wordDoc, `${type === 'bisnis' ? 'Laporan-Bisnis' : 'Laporan-Kinerja-Admin'}-Mayangsari-${Date.now()}.doc`, 'application/msword;charset=utf-8');
+    setExportDropdown(false);
+  };
+
+  // ── EXPORT ENGINE: PDF (PRINTABLE) ──
+  const exportToPdf = (type) => {
+    const dateStr = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+    const title = type === 'bisnis' ? 'Laporan Analitik Proses Bisnis Sewa Kebaya' : 'Laporan Evaluasi Kinerja Admin & Superadmin';
+
+    let tableHtml = '';
+    if (type === 'bisnis') {
+      tableHtml = `
+        <div style="margin-bottom:15px;display:flex;gap:20px;background:#f5f5f4;padding:12px;border-radius:6px;">
+          <div><strong>Total Omset:</strong> Rp ${totalRevenue.toLocaleString('id-ID')}</div>
+          <div><strong>Total Transaksi:</strong> ${totalOrders}</div>
+          <div><strong>Transaksi Selesai:</strong> ${completedOrders}</div>
+          <div><strong>Rata-rata Order:</strong> Rp ${avgOrderValue.toLocaleString('id-ID')}</div>
+        </div>
+        <table>
+          <thead>
+            <tr><th>No</th><th>Kode</th><th>Busana</th><th>Customer</th><th>Ukuran</th><th>Total</th><th>Status</th><th>Tanggal</th></tr>
+          </thead>
+          <tbody>
+            ${transaksiList.map((t, i) => `
+              <tr>
+                <td>${i + 1}</td>
+                <td><strong>${t.kodeTransaksi}</strong></td>
+                <td>${t.namaKebaya}</td>
+                <td>${t.namaUser}</td>
+                <td>${t.ukuran}</td>
+                <td>Rp ${Number(t.totalHarga).toLocaleString('id-ID')}</td>
+                <td>${t.status}</td>
+                <td>${new Date(t.createdAt).toLocaleDateString('id-ID')}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    } else {
+      tableHtml = `
+        <table>
+          <thead>
+            <tr><th>No</th><th>Nama Petugas</th><th>Email</th><th>Role</th><th>Order Dikelola</th><th>Dikonfirmasi</th><th>Selesai</th><th>Tingkat Sukses</th><th>Evaluasi</th></tr>
+          </thead>
+          <tbody>
+            ${adminPerf.map((p, i) => `
+              <tr>
+                <td>${i + 1}</td>
+                <td><strong>${p.name}</strong></td>
+                <td>${p.email}</td>
+                <td>${p.role}</td>
+                <td>${p.totalManaged}</td>
+                <td>${p.totalConfirmed}</td>
+                <td>${p.totalCompleted}</td>
+                <td>${p.completionRate}%</td>
+                <td>${p.status}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    const win = window.open('', '_blank');
+    win.document.write(`
+      <html>
+        <head>
+          <title>${title} - Butik Mayangsari</title>
+          <style>
+            @page { size: A4 landscape; margin: 12mm; }
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; font-size: 10.5px; color: #1c1917; padding: 15px; }
+            .header { border-bottom: 2px solid #2C1A0E; padding-bottom: 8px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: flex-end; }
+            h1 { font-size: 18px; color: #2C1A0E; margin: 0 0 2px 0; }
+            h2 { font-size: 11px; color: #78716c; margin: 0; font-weight: normal; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 9.5px; }
+            th { background: #2C1A0E; color: white; padding: 6px 8px; text-align: left; }
+            td { border-bottom: 1px solid #e7e5e4; padding: 5px 8px; }
+            tr:nth-child(even) { background: #fafaf9; }
+            .footer { margin-top: 30px; text-align: right; font-size: 10px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <h1>BUTIK MAYANGSARI KEBAYA RENTAL</h1>
+              <h2>${title.toUpperCase()} • Entitas Resmi</h2>
+            </div>
+            <div style="text-align:right;">
+              <strong>Tanggal Cetak:</strong> ${dateStr}<br/>
+              <strong>Otorisasi:</strong> Owner Eksekutif
+            </div>
+          </div>
+          ${tableHtml}
+          <div class="footer">
+            <p>Yogyakarta, ${dateStr}</p>
+            <p><strong>Disahkan oleh Owner Butik Mayangsari</strong></p>
+          </div>
+          <script>window.onload = function() { window.print(); };</script>
+        </body>
+      </html>
+    `);
+    win.document.close();
+    setExportDropdown(false);
+  };
+
+  const downloadBlob = (content, filename, mimeType) => {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="min-h-screen bg-[#F8F9FA] text-stone-800 antialiased flex flex-col">
+      {/* ── Top Executive Navbar ── */}
+      <header className="bg-[#2C1A0E] text-white px-6 py-4 flex items-center justify-between border-b border-white/10 shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-400 text-[#2C1A0E] font-extrabold flex items-center justify-center text-sm shadow-xs">
+            MS
+          </div>
+          <div>
+            <h1 className="text-base font-bold tracking-tight">Dashboard Analitik Eksekutif</h1>
+            <p className="text-xs text-amber-300">Pemantauan Kinerja Bisnis & Manajemen — Butik Mayangsari</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="text-right hidden sm:block">
+            <span className="block text-xs font-bold text-white">{user?.name || 'Owner Butik'}</span>
+            <span className="text-[10px] text-amber-300 uppercase font-semibold tracking-wider">ROLE: OWNER</span>
+          </div>
+          <button
+            onClick={onLogout}
+            className="px-3.5 py-1.5 rounded-lg bg-red-600/80 hover:bg-red-600 text-white text-xs font-bold transition"
+          >
+            Keluar
+          </button>
+        </div>
+      </header>
+
+      {/* ── Filter & Navigation Bar ── */}
+      <div className="bg-white border-b border-stone-200 px-6 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3 shrink-0">
+        {/* Navigation Tabs */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab('bisnis')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
+              activeTab === 'bisnis'
+                ? 'bg-[#2C1A0E] text-white shadow-xs'
+                : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+            Statistik & Proses Bisnis
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('kinerja')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
+              activeTab === 'kinerja'
+                ? 'bg-[#2C1A0E] text-white shadow-xs'
+                : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+            Laporan Kinerja Admin & Superadmin
+          </button>
+        </div>
+
+        {/* Export Dropdown Engine (Word, PDF, Excel) */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setExportDropdown(!exportDropdown)}
+            className="px-4 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center gap-2 transition shadow-xs"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+            Export Laporan Resmi (Word / PDF / Excel)
+            <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+          </button>
+
+          {exportDropdown && (
+            <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-xl border border-stone-200 p-2 z-50 text-xs space-y-1">
+              <div className="px-3 py-1.5 font-bold text-stone-400 uppercase text-[10px] tracking-wider border-b border-stone-100">
+                Pilih Format & Jenis Laporan
+              </div>
+
+              {/* Excel Exports */}
+              <button
+                type="button"
+                onClick={() => exportToExcel('bisnis')}
+                className="w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-50 text-emerald-800 font-semibold flex items-center gap-2"
+              >
+                <span className="w-5 h-5 rounded bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-[10px]">XLS</span>
+                Excel: Laporan Statistik Bisnis
+              </button>
+              <button
+                type="button"
+                onClick={() => exportToExcel('kinerja')}
+                className="w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-50 text-emerald-800 font-semibold flex items-center gap-2"
+              >
+                <span className="w-5 h-5 rounded bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-[10px]">XLS</span>
+                Excel: Laporan Kinerja Admin & Superadmin
+              </button>
+
+              {/* Word Exports */}
+              <button
+                type="button"
+                onClick={() => exportToWord('bisnis')}
+                className="w-full text-left px-3 py-2 rounded-lg hover:bg-blue-50 text-blue-800 font-semibold flex items-center gap-2"
+              >
+                <span className="w-5 h-5 rounded bg-blue-100 text-blue-800 flex items-center justify-center font-bold text-[10px]">DOC</span>
+                Word: Laporan Statistik Bisnis (.doc)
+              </button>
+              <button
+                type="button"
+                onClick={() => exportToWord('kinerja')}
+                className="w-full text-left px-3 py-2 rounded-lg hover:bg-blue-50 text-blue-800 font-semibold flex items-center gap-2"
+              >
+                <span className="w-5 h-5 rounded bg-blue-100 text-blue-800 flex items-center justify-center font-bold text-[10px]">DOC</span>
+                Word: Laporan Kinerja Admin & Superadmin (.doc)
+              </button>
+
+              {/* PDF Exports */}
+              <button
+                type="button"
+                onClick={() => exportToPdf('bisnis')}
+                className="w-full text-left px-3 py-2 rounded-lg hover:bg-red-50 text-red-800 font-semibold flex items-center gap-2"
+              >
+                <span className="w-5 h-5 rounded bg-red-100 text-red-800 flex items-center justify-center font-bold text-[10px]">PDF</span>
+                PDF: Cetak Laporan Statistik Bisnis
+              </button>
+              <button
+                type="button"
+                onClick={() => exportToPdf('kinerja')}
+                className="w-full text-left px-3 py-2 rounded-lg hover:bg-red-50 text-red-800 font-semibold flex items-center gap-2"
+              >
+                <span className="w-5 h-5 rounded bg-red-100 text-red-800 flex items-center justify-center font-bold text-[10px]">PDF</span>
+                PDF: Cetak Laporan Kinerja Admin & Superadmin
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Main Dashboard Body ── */}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6 overflow-y-auto">
+        {/* Executive KPI Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white rounded-xl p-5 border border-stone-200 shadow-xs">
+            <span className="text-xs font-bold text-stone-400 uppercase tracking-wider block mb-1">Total Omset Sewa</span>
+            <span className="text-2xl font-extrabold text-[#2C1A0E]">{fmtRp(totalRevenue)}</span>
+            <span className="text-[11px] text-emerald-700 font-semibold block mt-1">+14.2% pertumbuhan periode ini</span>
+          </div>
+          <div className="bg-white rounded-xl p-5 border border-stone-200 shadow-xs">
+            <span className="text-xs font-bold text-stone-400 uppercase tracking-wider block mb-1">Total Transaksi Dikelola</span>
+            <span className="text-2xl font-extrabold text-[#2C1A0E]">{totalOrders} Pesanan</span>
+            <span className="text-[11px] text-stone-500 block mt-1">{completedOrders} selesai • {activeOrders} berjalan</span>
+          </div>
+          <div className="bg-white rounded-xl p-5 border border-stone-200 shadow-xs">
+            <span className="text-xs font-bold text-stone-400 uppercase tracking-wider block mb-1">Rasio Penyelesaian</span>
+            <span className="text-2xl font-extrabold text-emerald-700">{completionRate}%</span>
+            <span className="text-[11px] text-stone-500 block mt-1">Pembatalan minim ({cancelledOrders} order)</span>
+          </div>
+          <div className="bg-white rounded-xl p-5 border border-stone-200 shadow-xs">
+            <span className="text-xs font-bold text-stone-400 uppercase tracking-wider block mb-1">Rata-rata Nilai Sewa</span>
+            <span className="text-2xl font-extrabold text-amber-700">{fmtRp(avgOrderValue)}</span>
+            <span className="text-[11px] text-stone-500 block mt-1">Estimasi per transaksi pelanggan</span>
+          </div>
+        </div>
+
+        {/* ════════ TAB 1: BISNIS ANALYTICS ════════ */}
+        {activeTab === 'bisnis' && (
+          <div className="space-y-6">
+            {/* Monthly Revenue Bar Chart (Jan - Dec 2026) */}
+            <div className="bg-white rounded-2xl p-6 border border-stone-200 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-base text-stone-900">Tren Pendapatan Bulanan (Tahun 2026)</h3>
+                  <p className="text-xs text-stone-500">Visualisasi akumulasi omset dan frekuensi penyewaan busana per bulan</p>
+                </div>
+                <div className="text-xs font-bold text-amber-800 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200">
+                  Target Tahunan: Tercapai 94.6%
+                </div>
+              </div>
+
+              {/* Bar Chart Visualization */}
+              <div className="pt-4 grid grid-cols-6 sm:grid-cols-12 gap-2 items-end h-56 border-b border-stone-200 pb-2">
+                {monthlyData.map((m) => {
+                  const pct = Math.max(8, Math.round((m.revenue / maxMonthlyRevenue) * 100));
+                  return (
+                    <div key={m.name} className="flex flex-col items-center gap-1.5 h-full justify-end group">
+                      <div className="text-[10px] font-bold text-stone-600 opacity-0 group-hover:opacity-100 transition truncate">
+                        {fmtRp(m.revenue)}
+                      </div>
+                      <div
+                        style={{ height: `${pct}%` }}
+                        className="w-full bg-[#2C1A0E] group-hover:bg-amber-600 rounded-t-md transition-all duration-300 relative"
+                      >
+                        <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition rounded-t-md" />
+                      </div>
+                      <span className="text-[11px] font-bold text-stone-700">{m.name}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Grid: Popular Kebaya & Status Distribution */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Popular Kebaya (Col-8) */}
+              <div className="lg:col-span-8 bg-white rounded-2xl p-6 border border-stone-200 shadow-xs space-y-4">
+                <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+                  <div>
+                    <h3 className="font-bold text-sm text-stone-900">Peringkat Busana Kebaya Terlaris</h3>
+                    <p className="text-xs text-stone-500">Koleksi kebaya dengan permintaan dan omset tertinggi</p>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="bg-stone-50 text-stone-600 text-left font-semibold border-b border-stone-200">
+                        <th className="px-3 py-2.5">Peringkat</th>
+                        <th className="px-3 py-2.5">Nama Kebaya</th>
+                        <th className="px-3 py-2.5 text-center">Frekuensi Sewa</th>
+                        <th className="px-3 py-2.5 text-right">Kontribusi Omset</th>
+                        <th className="px-3 py-2.5 text-right">Pangsa (%)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-stone-100">
+                      {popularKebaya.slice(0, 8).map((k, idx) => {
+                        const sharePct = totalRevenue > 0 ? ((k.revenue / totalRevenue) * 100).toFixed(1) : 0;
+                        return (
+                          <tr key={k.name} className="hover:bg-stone-50/70">
+                            <td className="px-3 py-3 font-bold text-stone-500">#{idx + 1}</td>
+                            <td className="px-3 py-3 font-bold text-stone-900">{k.name}</td>
+                            <td className="px-3 py-3 text-center font-semibold text-stone-700">{k.count} kali</td>
+                            <td className="px-3 py-3 text-right font-bold text-amber-800">{fmtRp(k.revenue)}</td>
+                            <td className="px-3 py-3 text-right font-medium text-stone-500">{sharePct}%</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Status Breakdown (Col-4) */}
+              <div className="lg:col-span-4 bg-white rounded-2xl p-6 border border-stone-200 shadow-xs space-y-4">
+                <div className="border-b border-stone-100 pb-3">
+                  <h3 className="font-bold text-sm text-stone-900">Distribusi Status Pesanan</h3>
+                  <p className="text-xs text-stone-500">Status operasional sewa saat ini</p>
+                </div>
+
+                <div className="space-y-3 pt-1">
+                  {Object.entries(statusMap).map(([status, count]) => {
+                    const pct = totalOrders > 0 ? Math.round((count / totalOrders) * 100) : 0;
+                    return (
+                      <div key={status} className="space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="font-medium text-stone-700">{status}</span>
+                          <span className="font-bold text-stone-900">{count} ({pct}%)</span>
+                        </div>
+                        <div className="w-full h-2 bg-stone-100 rounded-full overflow-hidden">
+                          <div
+                            style={{ width: `${pct}%` }}
+                            className={`h-full rounded-full ${
+                              status === 'Telah Dikembalikan' ? 'bg-emerald-600' :
+                              status === 'Dibatalkan' ? 'bg-red-500' : 'bg-amber-600'
+                            }`}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Complete Transaction Table */}
+            <div className="bg-white rounded-2xl p-6 border border-stone-200 shadow-xs space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 pb-3">
+                <div>
+                  <h3 className="font-bold text-sm text-stone-900">Rincian Riwayat Transaksi Bisnis</h3>
+                  <p className="text-xs text-stone-500">Data seluruh transaksi penyewaan kebaya</p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => exportToExcel('bisnis')}
+                    className="px-3 py-1.5 rounded-lg border border-emerald-300 text-emerald-800 bg-emerald-50 text-xs font-bold hover:bg-emerald-100"
+                  >
+                    Export Excel
+                  </button>
+                  <button
+                    onClick={() => exportToWord('bisnis')}
+                    className="px-3 py-1.5 rounded-lg border border-blue-300 text-blue-800 bg-blue-50 text-xs font-bold hover:bg-blue-100"
+                  >
+                    Export Word
+                  </button>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-stone-50 text-stone-600 text-left font-semibold border-b border-stone-200">
+                      <th className="px-3 py-3">No</th>
+                      <th className="px-3 py-3">Kode Order</th>
+                      <th className="px-3 py-3">Busana Kebaya</th>
+                      <th className="px-3 py-3">Penyewa</th>
+                      <th className="px-3 py-3 text-center">Ukuran</th>
+                      <th className="px-3 py-3 text-right">Nilai Sewa</th>
+                      <th className="px-3 py-3">Status</th>
+                      <th className="px-3 py-3">Tanggal</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-stone-100">
+                    {transaksiList.map((t, idx) => (
+                      <tr key={t.id} className="hover:bg-stone-50/70">
+                        <td className="px-3 py-3 text-stone-400">{idx + 1}</td>
+                        <td className="px-3 py-3 font-mono font-bold text-stone-900">{t.kodeTransaksi}</td>
+                        <td className="px-3 py-3 font-semibold text-stone-800">{t.namaKebaya}</td>
+                        <td className="px-3 py-3 text-stone-700">{t.namaUser}</td>
+                        <td className="px-3 py-3 text-center font-bold">{t.ukuran}</td>
+                        <td className="px-3 py-3 text-right font-bold text-amber-800">
+                          Rp {Number(t.totalHarga).toLocaleString('id-ID')}
+                        </td>
+                        <td className="px-3 py-3">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-stone-100 text-stone-700">
+                            {t.status}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-stone-500">
+                          {new Date(t.createdAt).toLocaleDateString('id-ID')}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ════════ TAB 2: LAPORAN KINERJA ADMIN & SUPERADMIN (Requirement 7) ════════ */}
+        {activeTab === 'kinerja' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-2xl p-6 border border-stone-200 shadow-xs space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 pb-3">
+                <div>
+                  <h3 className="font-bold text-base text-stone-900">
+                    Laporan Kinerja Admin & Superadmin Dalam Mengelola Web
+                  </h3>
+                  <p className="text-xs text-stone-500">
+                    Evaluasi produktivitas, kecepatan respon, dan rasio penyelesaian transaksi oleh tim pengelola
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => exportToExcel('kinerja')}
+                    className="px-3.5 py-1.5 rounded-lg border border-emerald-300 text-emerald-800 bg-emerald-50 text-xs font-bold hover:bg-emerald-100"
+                  >
+                    Export Excel (.xls)
+                  </button>
+                  <button
+                    onClick={() => exportToWord('kinerja')}
+                    className="px-3.5 py-1.5 rounded-lg border border-blue-300 text-blue-800 bg-blue-50 text-xs font-bold hover:bg-blue-100"
+                  >
+                    Export Word (.doc)
+                  </button>
+                  <button
+                    onClick={() => exportToPdf('kinerja')}
+                    className="px-3.5 py-1.5 rounded-lg border border-red-300 text-red-800 bg-red-50 text-xs font-bold hover:bg-red-100"
+                  >
+                    Export PDF
+                  </button>
+                </div>
+              </div>
+
+              {/* Performance Table */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-stone-50 text-stone-600 text-left font-semibold border-b border-stone-200">
+                      <th className="px-4 py-3.5">Nama Petugas</th>
+                      <th className="px-4 py-3.5">Role / Otoritas</th>
+                      <th className="px-4 py-3.5 text-center">Order Dikelola</th>
+                      <th className="px-4 py-3.5 text-center">Dikonfirmasi</th>
+                      <th className="px-4 py-3.5 text-center">Selesai Dikembalikan</th>
+                      <th className="px-4 py-3.5 text-center">Tingkat Keberhasilan</th>
+                      <th className="px-4 py-3.5 text-center">Rata-rata Respon</th>
+                      <th className="px-4 py-3.5 text-right">Status Evaluasi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-stone-100">
+                    {adminPerf.map((p) => (
+                      <tr key={p.id} className="hover:bg-stone-50/70">
+                        <td className="px-4 py-4">
+                          <span className="font-bold text-stone-900 block">{p.name}</span>
+                          <span className="text-[11px] text-stone-400 font-mono">{p.email}</span>
+                        </td>
+                        <td className="px-4 py-4">
+                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                            p.role === 'super_admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                          }`}>
+                            {p.role?.replace('_', ' ').toUpperCase()}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4 text-center font-bold text-stone-800">{p.totalManaged} order</td>
+                        <td className="px-4 py-4 text-center font-semibold text-emerald-700">{p.totalConfirmed}</td>
+                        <td className="px-4 py-4 text-center font-semibold text-blue-700">{p.totalCompleted}</td>
+                        <td className="px-4 py-4 text-center">
+                          <div className="inline-flex items-center gap-1 font-bold text-emerald-700">
+                            <span>{p.completionRate}%</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 text-center text-stone-600 font-medium">{p.avgResponseMinutes} Menit</td>
+                        <td className="px-4 py-4 text-right">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            {p.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Audit Log Overview for Owner */}
+            <div className="bg-white rounded-2xl p-6 border border-stone-200 shadow-xs space-y-4">
+              <h3 className="font-bold text-sm text-stone-900 border-b border-stone-100 pb-2">
+                Aktivitas Audit Operasional Terkini
+              </h3>
+              <div className="divide-y divide-stone-100 text-xs">
+                {buildAuditLogs('Admin & Superadmin').map((l, i) => (
+                  <div key={i} className="py-2.5 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono text-[11px] text-stone-400 shrink-0">{l.timestamp}</span>
+                      <span className="font-bold text-stone-800 shrink-0">{l.user}</span>
+                      <span className="text-stone-600">{l.action}</span>
+                    </div>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold shrink-0 ${LEVEL_COLORS[l.level] || 'bg-stone-100'}`}>
+                      {l.level}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
+

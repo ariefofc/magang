@@ -168,6 +168,7 @@ model Kebaya {
   nama             String                  @db.VarChar(255)
   deskripsi        String?                 @db.Text
   harga            Int                     @default(0)
+  stok             Int                     @default(1)
   foto             String?                 @db.VarChar(500)
   fotoBelakang     String?                 @map("foto_belakang") @db.VarChar(500)
   kainUtama        String?                 @map("kain_utama") @db.VarChar(500)

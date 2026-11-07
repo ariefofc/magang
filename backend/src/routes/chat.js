@@ -181,13 +181,13 @@ router.get('/:roomId/messages', async (req, res) => {
   }
 });
 
-// POST /api/chat/:roomId/send
-router.post('/:roomId/send', async (req, res) => {
+// POST /api/chat/:roomId/send (also alias /messages)
+const handleSendMessage = async (req, res) => {
   try {
     const roomId = parseInt(req.params.roomId);
     const { message: msg, sender_name, sender_type } = req.body;
 
-    const isAdmin = sender_type === 'admin';
+    const isAdmin = sender_type === 'admin' || (req.user && ['admin', 'super_admin'].includes(req.user.role));
 
     const message = await prisma.message.create({
       data: {
@@ -208,7 +208,10 @@ router.post('/:roomId/send', async (req, res) => {
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
-});
+};
+
+router.post('/:roomId/send', handleSendMessage);
+router.post('/:roomId/messages', handleSendMessage);
 
 // POST /api/chat/:roomId/quick-reply
 // Used by customer when clicking a FAQ/quick-reply chip.
@@ -311,12 +314,27 @@ router.post('/admin/:roomId/close', auth, checkRole('admin', 'super_admin'), asy
   }
 });
 
-// POST /api/chat/admin/:roomId/reopen
+// POST & PATCH /api/chat/admin/:roomId/reopen
 router.post('/admin/:roomId/reopen', auth, checkRole('admin', 'super_admin'), async (req, res) => {
   try {
     const room = await prisma.chatRoom.update({
       where: { id: parseInt(req.params.roomId) },
       data: { status: 'open' },
+    });
+    res.json({ room });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Alias PATCH /api/chat/:roomId/:action
+router.patch('/:roomId/:action', auth, checkRole('admin', 'super_admin'), async (req, res) => {
+  try {
+    const roomId = parseInt(req.params.roomId);
+    const status = req.params.action === 'close' ? 'closed' : 'open';
+    const room = await prisma.chatRoom.update({
+      where: { id: roomId },
+      data: { status },
     });
     res.json({ room });
   } catch (err) {
